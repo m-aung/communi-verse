@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react'; // Added useEffect here
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -19,15 +19,15 @@ const loginFormSchema = z.object({
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
 
-type LoginFormValues = z.infer<typeof loginFormSchema>;
-
-// Basic signup schema for linking, real signup form would be more complex
+// Basic signup schema
 const signupFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
-type SignupFormValues = z.infer<typeof signupFormSchema>;
+
+// Combined type for form values
+type FormValues = z.infer<typeof loginFormSchema> & Partial<z.infer<typeof signupFormSchema>>;
 
 
 export function LoginForm() {
@@ -36,33 +36,39 @@ export function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSignupMode, setIsSignupMode] = useState(false); // State to toggle between login and signup
 
-  const form = useForm<LoginFormValues | SignupFormValues>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(isSignupMode ? signupFormSchema : loginFormSchema),
-    defaultValues: isSignupMode 
-      ? { name: '', email: '', password: '' } 
-      : { email: '', password: '' },
+    // Provide default values for ALL fields that might be part of the form,
+    // regardless of the current mode. This prevents uncontrolled -> controlled warnings.
+    defaultValues: {
+      name: '',
+      email: '',
+      password: '',
+    },
   });
 
   // Effect to reset form when toggling mode
   useEffect(() => {
-    form.reset(isSignupMode 
-      ? { name: '', email: '', password: '' } 
-      : { email: '', password: '' }
-    );
+    // When switching modes, reset the form to clear previous inputs.
+    // The resolver will ensure validation against the correct schema.
+    form.reset({
+      name: '',
+      email: '',
+      password: '',
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSignupMode, form.reset]);
+  }, [isSignupMode]); // Only trigger reset when isSignupMode changes
 
 
-  const onSubmit = async (data: LoginFormValues | SignupFormValues) => {
+  const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
     try {
       if (isSignupMode) {
-        const signupData = data as SignupFormValues;
-        await signup(signupData.email, signupData.password, signupData.name);
+        // We can assert data.name because signupFormSchema requires it
+        await signup(data.email, data.password, data.name!); 
         toast({ title: "Signup Successful", description: "Welcome to CommuniVerse!" });
       } else {
-        const loginData = data as LoginFormValues;
-        await login(loginData.email, loginData.password);
+        await login(data.email, data.password);
         toast({ title: "Login Successful", description: "Welcome back!" });
       }
     } catch (error: any) {
