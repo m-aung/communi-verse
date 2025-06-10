@@ -1,35 +1,13 @@
+
 import { OnlineStatusButton } from '@/components/dashboard/online-status-button';
 import { RoomCard } from '@/components/dashboard/room-card';
+import { getAllRooms } from '@/lib/services/roomService'; // Updated import
 import type { Room } from '@/lib/types';
 
-const mockRooms: Room[] = [
-  {
-    id: 'cosmic-cafe',
-    name: 'Cosmic Cafe',
-    userCount: 5,
-    capacity: 15,
-    description: 'Relax and chat in a cozy cosmic atmosphere.',
-    image: 'https://placehold.co/600x400.png',
-  },
-  {
-    id: 'nebula-lounge',
-    name: 'Nebula Lounge',
-    userCount: 12,
-    capacity: 15,
-    description: 'Discuss the latest stellar news in this vibrant lounge.',
-    image: 'https://placehold.co/600x400.png',
-  },
-  {
-    id: 'galaxy-galleria',
-    name: 'Galaxy Galleria',
-    userCount: 0,
-    capacity: 15,
-    description: 'A quiet place for deep conversations and making new friends.',
-    image: 'https://placehold.co/600x400.png',
-  },
-];
+export default async function DashboardPage() {
+  // Fetch rooms using the service
+  const rooms: Room[] = await getAllRooms();
 
-export default function DashboardPage() {
   return (
     <div className="space-y-12">
       <section className="text-center py-8 bg-card shadow-md rounded-lg">
@@ -39,11 +17,15 @@ export default function DashboardPage() {
 
       <section>
         <h2 className="text-2xl font-semibold font-headline mb-6 text-center">Join a Room</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {mockRooms.map((room) => (
-            <RoomCard key={room.id} room={room} />
-          ))}
-        </div>
+        {rooms.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {rooms.map((room) => (
+              <RoomCard key={room.id} room={room} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-center text-muted-foreground">No rooms available at the moment. Check back later!</p>
+        )}
       </section>
     </div>
   );
