@@ -1,6 +1,6 @@
 
 import { ChatClientPage } from '@/components/chat/chat-client-page';
-import { getRoom } from '@/lib/services/roomService'; // Updated import
+import { getRoom } from '@/lib/services/roomService'; 
 import type { Room } from '@/lib/types';
 import { notFound } from 'next/navigation';
 
@@ -12,16 +12,10 @@ export default async function ChatRoomPage({ params }: { params: { roomId: strin
     notFound();
   }
 
+  // ChatClientPage now handles its own auth checks and data fetching based on auth user
   return <ChatClientPage room={room} />;
 }
 
-// Optional: generateStaticParams could use getAllRooms if needed, but dynamic is fine.
-// export async function generateStaticParams() {
-//   const rooms = await getAllRooms();
-//   return rooms.map((room) => ({
-//     roomId: room.id,
-//   }));
-// }
 
 export async function generateMetadata({ params }: { params: { roomId: string } }) {
   const room = await getRoom(params.roomId);

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { ChatMessage, ChatUser, Room } from '@/lib/types';
+import type { ChatMessage, ChatUser, Room, UserProfile } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,26 +10,29 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Send, Bell, Gift, Users, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getCurrentUser } from '@/lib/services/userService';
+import { useAuth } from '@/hooks/useAuth'; // Import useAuth
 import { getRoomParticipants, addUserToRoom, removeUserFromRoom } from '@/lib/services/roomService';
 import { getChatMessages, addChatMessage } from '@/lib/services/chatService';
+import { useRouter } from 'next/navigation';
 
 interface ChatClientPageProps {
   room: Room; // Initial room data from server
 }
 
 export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
+  const { user: authUser, loading: authLoading } = useAuth(); // Get current user from AuthContext
   const [room, setRoom] = useState<Room>(initialRoom);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [usersInRoom, setUsersInRoom] = useState<ChatUser[]>([]);
-  const [currentUser, setCurrentUser] = useState<ChatUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // currentUser is now authUser from useAuth
+  const [isLoading, setIsLoading] = useState(true); // For chat data loading
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const router = useRouter();
 
   const fetchChatData = useCallback(async () => {
-    if (!currentUser) return;
+    if (!authUser) return; // Wait for authUser to be available
     try {
       setIsLoading(true);
       const [fetchedParticipants, fetchedMessages] = await Promise.all([
@@ -37,19 +40,17 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
         getChatMessages(room.id)
       ]);
       
-      // Ensure current user is part of the room's participant list if not already
-      // This simulates "joining" the room on the backend if not already there
-      const isCurrentUserInList = fetchedParticipants.some(p => p.id === currentUser.id);
+      const isCurrentUserInList = fetchedParticipants.some(p => p.id === authUser.id);
       if (!isCurrentUserInList) {
-        await addUserToRoom(room.id, currentUser.id);
-        // Re-fetch participants to include current user
+        // addUserToRoom expects a UserProfile, but we have ChatUser from auth.
+        // For mock, we can pass the ChatUser and roomService can adapt, or we fetch full profile.
+        // Let's assume addUserToRoom can handle ChatUser or just needs ID. Our mock uses ID.
+        await addUserToRoom(room.id, authUser.id); 
         const updatedParticipants = await getRoomParticipants(room.id);
         setUsersInRoom(updatedParticipants);
-         // Update room user count
         setRoom(prevRoom => ({ ...prevRoom, userCount: updatedParticipants.length }));
       } else {
         setUsersInRoom(fetchedParticipants);
-         // Update room user count
         setRoom(prevRoom => ({ ...prevRoom, userCount: fetchedParticipants.length }));
       }
       setMessages(fetchedMessages);
@@ -60,32 +61,46 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [room.id, toast, currentUser]);
+  }, [room.id, toast, authUser]);
+
 
   useEffect(() => {
-    getCurrentUser().then(setCurrentUser);
-  }, []);
-  
-  useEffect(() => {
-    if (currentUser) {
+    if (authLoading) { // Wait for Firebase auth to resolve
+      setIsLoading(true);
+      return;
+    }
+    if (!authUser && !authLoading) { // If auth loaded and no user, redirect
+      toast({ title: "Not Authenticated", description: "Please login to join the chat.", variant: "destructive" });
+      router.push('/login');
+      return;
+    }
+    // If authUser is available
+    if (authUser) {
       fetchChatData();
     }
-    // Simulating user leaving the room on component unmount or room change
-    // In a real app, this would be handled more robustly (e.g. WebSocket disconnect, window beforeunload)
-    const currentRoomId = room.id;
+    
+    // Cleanup: remove user from room on unmount or room change
+    const currentRoomId = room.id; // Capture room.id at the time of effect setup
+    let currentAuthUserId: string | null = null;
+    if (authUser) {
+      currentAuthUserId = authUser.id;
+    }
+    
     return () => {
-      if (currentUser) {
-        removeUserFromRoom(currentRoomId, currentUser.id).then(() => {
-            // console.log(`User ${currentUser.id} marked as left room ${currentRoomId}`);
+      if (currentAuthUserId) {
+        // console.log(`ChatClientPage unmounting/changing room. Removing user ${currentAuthUserId} from ${currentRoomId}`);
+        removeUserFromRoom(currentRoomId, currentAuthUserId).then(() => {
+            // console.log(`User ${currentAuthUserId} marked as left room ${currentRoomId} after cleanup.`);
+        }).catch(err => {
+            // console.error(`Error removing user ${currentAuthUserId} from room ${currentRoomId} during cleanup:`, err);
         });
       }
     };
-
-  }, [room.id, fetchChatData, currentUser]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.id, authUser, authLoading, router]); // fetchChatData is not included to avoid re-triggering on its own change
 
 
   useEffect(() => {
-    // Scroll to bottom when new messages arrive
     if (scrollAreaRef.current) {
       const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (viewport) viewport.scrollTop = viewport.scrollHeight;
@@ -93,9 +108,9 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (newMessage.trim() === '' || !currentUser) return;
+    if (newMessage.trim() === '' || !authUser) return;
     try {
-      const sentMessage = await addChatMessage(room.id, currentUser, newMessage);
+      const sentMessage = await addChatMessage(room.id, authUser, newMessage); // Pass ChatUser directly
       setMessages(prevMessages => [...prevMessages, sentMessage]);
       setNewMessage('');
     } catch (error) {
@@ -120,7 +135,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     });
   };
 
-  if (isLoading || !currentUser) {
+  if (isLoading || authLoading || !authUser && !authLoading ) { // Show loader if chat data or auth is loading, or if no user after auth check
     return (
       <div className="flex justify-center items-center h-[calc(100vh-180px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -128,6 +143,12 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
       </div>
     );
   }
+  
+  // This check should ideally be covered by useEffect redirect, but as a safeguard for render
+  if (!authUser) {
+      return <p className="text-center py-10">Redirecting to login...</p>;
+  }
+
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-180px)] max-h-[800px]">
@@ -149,9 +170,9 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
                     <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="user avatar" />
                     <AvatarFallback>{user.name.substring(0, 1).toUpperCase()}</AvatarFallback>
                   </Avatar>
-                  <span className="text-sm font-medium">{user.name}</span>
+                  <span className="text-sm font-medium">{user.name} {user.id === authUser?.id ? "(You)" : ""}</span>
                 </div>
-                {user.id !== currentUser.id && (
+                {user.id !== authUser?.id && (
                   <Button variant="ghost" size="sm" onClick={() => handleGiftCoins(user)} title={`Gift coins to ${user.name}`}>
                     <Gift className="h-4 w-4 text-yellow-500" />
                   </Button>
@@ -159,7 +180,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
               </div>
             ))}
           </ScrollArea>
-          {usersInRoom.length <= 1 && (
+          {usersInRoom.length <= 1 && authUser && !usersInRoom.find(u => u.id !== authUser.id) && ( // Show if only current user is in room
             <Button onClick={handleRingFriends} variant="outline" className="w-full mt-4">
               <Bell className="mr-2 h-4 w-4" /> Ring Friends
             </Button>
@@ -179,16 +200,16 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex mb-3 ${msg.sender.id === currentUser.id ? 'justify-end' : 'justify-start'}`}
+                className={`flex mb-3 ${msg.sender.id === authUser?.id ? 'justify-end' : 'justify-start'}`}
               >
-                <div className={`flex items-end max-w-[70%] ${msg.sender.id === currentUser.id ? 'flex-row-reverse' : 'flex-row'}`}>
+                <div className={`flex items-end max-w-[70%] ${msg.sender.id === authUser?.id ? 'flex-row-reverse' : 'flex-row'}`}>
                    <Avatar className="h-8 w-8 mx-2 order-1">
                     <AvatarImage src={msg.sender.avatarUrl} alt={msg.sender.name} data-ai-hint="user avatar" />
                     <AvatarFallback>{msg.sender.name.substring(0,1).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div
                     className={`p-3 rounded-lg shadow ${
-                      msg.sender.id === currentUser.id
+                      msg.sender.id === authUser?.id
                         ? 'bg-primary text-primary-foreground rounded-br-none'
                         : 'bg-muted text-foreground rounded-bl-none'
                     }`}
@@ -217,9 +238,9 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 className="flex-1"
-                disabled={isLoading}
+                disabled={isLoading || authLoading}
               />
-              <Button type="submit" variant="default" disabled={isLoading || newMessage.trim() === ''}>
+              <Button type="submit" variant="default" disabled={isLoading || authLoading || newMessage.trim() === ''}>
                 <Send className="h-4 w-4" />
                 <span className="sr-only">Send</span>
               </Button>
