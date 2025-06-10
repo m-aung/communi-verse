@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Coins, Home, ShoppingCart, UserCircle2 } from 'lucide-react';
@@ -30,9 +31,11 @@ export function SiteHeader() {
                 <Coins className="mr-1 h-4 w-4 text-yellow-500" />
                 <span>{userCoins}</span>
               </div>
-              <Button variant="ghost" size="icon">
-                <UserCircle2 className="h-5 w-5" />
-                <span className="sr-only">Profile</span>
+              <Button variant="ghost" size="icon" asChild>
+                <Link href="/profile">
+                  <UserCircle2 className="h-5 w-5" />
+                  <span className="sr-only">Profile</span>
+                </Link>
               </Button>
             </>
           ) : (
