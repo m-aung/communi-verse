@@ -24,7 +24,7 @@ export function SiteHeader() {
 
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50 shadow-sm">
-      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between flex-wrap">
         <Link href="/" className="text-2xl font-bold font-headline text-primary">
           CommuniVerse
         </Link>
