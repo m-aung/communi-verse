@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Bell, Gift, Users, Loader2, UserPlus } from 'lucide-react';
+import { Send, Bell, Gift, Users, Loader2, UserPlus, LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth'; // Import useAuth
 import { getRoomParticipants, addUserToRoom, removeUserFromRoom } from '@/lib/services/roomService';
@@ -143,6 +143,21 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     });
   };
 
+  const handleLeaveRoom = async () => {
+    if (!authUser) return;
+    try {
+      await removeUserFromRoom(room.id, authUser.id);
+      toast({
+        title: 'Left Room',
+        description: `You have left ${room.name}.`,
+      });
+      router.push('/');
+    } catch (error) {
+      console.error("Error leaving room:", error);
+      toast({ title: "Error", description: "Could not leave room.", variant: "destructive" });
+    }
+  };
+
   if (isLoading || authLoading || !authUser && !authLoading ) { // Show loader if chat data or auth is loading, or if no user after auth check
     return (
       <div className="flex justify-center items-center h-[calc(100vh-180px)]">
@@ -193,11 +208,16 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
               </div>
             ))}
           </ScrollArea>
-          {usersInRoom.length <= 1 && authUser && !usersInRoom.find(u => u.id !== authUser.id) && ( // Show if only current user is in room
-            <Button onClick={handleRingAction} variant="outline" className="w-full mt-4 shrink-0">
-              <Bell className="mr-2 h-4 w-4" /> Ring Followers
+          <div className="mt-4 space-y-2 shrink-0">
+            {usersInRoom.length <= 1 && authUser && !usersInRoom.find(u => u.id !== authUser.id) && ( // Show if only current user is in room
+              <Button onClick={handleRingAction} variant="outline" className="w-full">
+                <Bell className="mr-2 h-4 w-4" /> Ring Followers
+              </Button>
+            )}
+            <Button onClick={handleLeaveRoom} variant="destructive" className="w-full">
+              <LogOut className="mr-2 h-4 w-4" /> Leave Room
             </Button>
-          )}
+          </div>
         </CardContent>
       </Card>
 
