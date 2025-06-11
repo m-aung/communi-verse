@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth'; // Import useAuth
-import { getUserProfile, updateUserProfile } from '@/lib/services/userService';
+import { getUserProfile, updateUserProfile, createUserProfile } from '@/lib/services/userService';
 import type { UserProfile } from '@/lib/types';
 import { Loader2, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -29,7 +29,7 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>;
 export function ProfileForm() {
   const { user: authUser, loading: authLoading, firebaseUser } = useAuth(); // Get user from useAuth
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Local loading state for this component
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
@@ -47,22 +47,26 @@ export function ProfileForm() {
   const watchedName = form.watch('name');
 
   useEffect(() => {
-    if (authLoading) {
-      setIsLoading(true);
+    if (authLoading) { // If global auth state is loading
+      setIsLoading(true); // Component is also in a loading state
       return;
     }
-    if (!authUser || !firebaseUser) {
-      // If not authenticated, redirect to login or show message
+    // If global auth state is resolved (authLoading is false)
+    // Component's primary loading dependency (auth) is resolved.
+    // We will set isLoading to false after attempting to fetch profile or redirecting.
+
+    if (!authUser || !firebaseUser) { // Now, check if user is actually authenticated
       toast({ title: "Not Authenticated", description: "Please login to view your profile.", variant: "destructive" });
       router.push('/login');
-      return;
+      setIsLoading(false); // Stop loading as we are redirecting
+      return; // Exit effect if redirecting
     }
 
+    // If authenticated, proceed to fetch profile data
     async function fetchProfile() {
-      setIsLoading(true);
+      setIsLoading(true); // Set loading true for the profile fetch operation
       try {
-        // authUser.id is the Firebase UID
-        const profile = await getUserProfile(authUser.id); 
+        const profile = await getUserProfile(authUser.id);
         if (profile) {
           setUserProfile(profile);
           form.reset({
@@ -71,71 +75,76 @@ export function ProfileForm() {
             avatarUrl: profile.avatarUrl || '',
           });
         } else {
-          // Profile might not exist yet in our DB, use Firebase details as a base
-           setUserProfile({ // Create a temporary profile state for the form
+          // Profile might not exist yet in Firestore, use Firebase details as a base
+          const baseName = authUser.name || (firebaseUser.email?.split('@')[0] || 'New User');
+          const baseAvatar = authUser.avatarUrl || firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${baseName.substring(0,1).toUpperCase()}`;
+          
+          // Set a temporary userProfile state for the form based on auth data
+          // This doesn't mean the profile exists in DB yet, but pre-fills the form.
+          setUserProfile({ 
             id: authUser.id,
-            name: authUser.name,
+            name: baseName,
             email: firebaseUser.email || '',
-            avatarUrl: authUser.avatarUrl || '',
+            avatarUrl: baseAvatar,
             bio: '',
-            isOnline: false, // Default, can be fetched/updated separately
+            isOnline: false, 
           });
           form.reset({
-            name: authUser.name,
+            name: baseName,
             bio: '',
-            avatarUrl: authUser.avatarUrl || '',
+            avatarUrl: baseAvatar,
           });
-           toast({ title: "Profile not fully setup", description: "Please complete your profile details.", variant: "default" });
         }
       } catch (error) {
         console.error("Failed to fetch profile:", error);
         toast({ title: "Error", description: "Could not load your profile.", variant: "destructive" });
       } finally {
-        setIsLoading(false);
+        setIsLoading(false); // Profile fetch operation finished
       }
     }
     fetchProfile();
-  }, [authUser, authLoading, firebaseUser, form, toast, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, authLoading, firebaseUser, router]); // form and toast removed, reset happens inside fetchProfile
 
   const onSubmit = async (data: ProfileFormValues) => {
-    if (!authUser) {
-      toast({ title: "Not Authenticated", description: "Login required.", variant: "destructive" });
+    if (!authUser || !firebaseUser) { 
+      toast({ title: "Not Authenticated", description: "Login required to save profile.", variant: "destructive" });
       return;
     }
-    if (!userProfile && !authUser.id) { // Ensure we have an ID to update
-        toast({ title: "Error", description: "User ID not found. Cannot update profile.", variant: "destructive" });
-        return;
-    }
-
-    const profileIdToUpdate = userProfile ? userProfile.id : authUser.id;
-
+    
+    const profileIdToUpdate = authUser.id;
     setIsSaving(true);
-    try {
-      const updatedProfileData: Partial<UserProfile> = {
-        name: data.name,
-        bio: data.bio,
-        avatarUrl: data.avatarUrl,
-        // email is usually managed by Firebase Auth, not updated here
-      };
-      
-      // If it was a new profile, it also needs the email and isOnline status
-      if(!userProfile) {
-        updatedProfileData.email = firebaseUser?.email || '';
-        updatedProfileData.isOnline = false; // Default to false, online status button handles this
-      }
 
-      const updatedProfile = await updateUserProfile(profileIdToUpdate, updatedProfileData);
+    try {
+      // Check if profile exists to decide between update or create
+      const existingProfile = await getUserProfile(profileIdToUpdate);
       
-      if (updatedProfile) {
-        setUserProfile(updatedProfile); // Update local state
-        form.reset(data); 
+      const profileDataForSave: UserProfile = {
+        id: profileIdToUpdate,
+        name: data.name,
+        email: firebaseUser.email || (existingProfile?.email || ''), // Preserve existing email if any
+        avatarUrl: data.avatarUrl,
+        bio: data.bio,
+        isOnline: existingProfile?.isOnline !== undefined ? existingProfile.isOnline : false, // Preserve existing online status
+      };
+
+      let savedProfile;
+      if (existingProfile) {
+        savedProfile = await updateUserProfile(profileIdToUpdate, profileDataForSave);
+      } else {
+        savedProfile = await createUserProfile(profileDataForSave);
+      }
+      
+      if (savedProfile) {
+        setUserProfile(savedProfile); 
+        form.reset({ 
+          name: savedProfile.name,
+          bio: savedProfile.bio || '',
+          avatarUrl: savedProfile.avatarUrl || '',
+        }); 
         toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
       } else {
-         // This case could mean the profile didn't exist and update failed to create.
-         // Let's try creating it if updateUserProfile is designed to only update existing.
-         // For our mock, updateUserProfile also handles creation/upsert if profileData in createUserProfile is UserProfile type
-         // So, if it's null, it's likely an issue with the mock or a real error.
-        throw new Error("Profile update returned null. It might be an issue with creating it.");
+        throw new Error("Profile update or creation failed.");
       }
     } catch (error) {
       console.error("Failed to update profile:", error);
@@ -145,7 +154,7 @@ export function ProfileForm() {
     }
   };
 
-  if (isLoading || authLoading) {
+  if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center space-y-4 py-10">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -155,24 +164,21 @@ export function ProfileForm() {
   }
 
   if (!authUser && !authLoading) {
-     // This case should be handled by the redirect in useEffect, but as a fallback
-    return <p className="text-center text-destructive py-10">Please log in to view your profile.</p>;
+    return <p className="text-center text-destructive py-10">Redirecting to login...</p>;
   }
   
-  // Use authUser for initial display if userProfile is still null (e.g., first time setup)
-  const displayProfile = userProfile || authUser;
-  // Email from firebaseUser as it's more authoritative if available
-  const displayEmail = firebaseUser?.email || (displayProfile as UserProfile)?.email || 'Not available';
-
+  const currentName = form.getValues('name') || authUser?.name || 'User';
+  const currentAvatar = form.getValues('avatarUrl') || authUser?.avatarUrl || '';
+  const displayEmail = firebaseUser?.email || userProfile?.email || 'Not available';
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <div className="flex flex-col items-center space-y-4">
           <Avatar className="h-24 w-24 ring-2 ring-primary ring-offset-2 ring-offset-background">
-            <AvatarImage src={watchedAvatarUrl || displayProfile?.avatarUrl} alt={displayProfile?.name} data-ai-hint="user avatar large" />
+            <AvatarImage src={currentAvatar} alt={currentName} data-ai-hint="user avatar large" />
             <AvatarFallback className="text-3xl">
-              {(watchedName || displayProfile?.name || 'U').substring(0, 2).toUpperCase()}
+              {currentName.substring(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <FormField
@@ -226,7 +232,7 @@ export function ProfileForm() {
           )}
         />
         
-        {userProfile && (
+        {userProfile && userProfile.isOnline !== undefined && (
           <FormItem>
               <Label>Online Status</Label>
               <p className={`text-sm font-medium p-2 rounded-md ${userProfile.isOnline ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
@@ -237,7 +243,7 @@ export function ProfileForm() {
         )}
 
 
-        <Button type="submit" disabled={isSaving || isLoading || authLoading} className="w-full sm:w-auto">
+        <Button type="submit" disabled={isSaving || authLoading} className="w-full sm:w-auto">
           {isSaving ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
@@ -252,3 +258,5 @@ export function ProfileForm() {
     </Form>
   );
 }
+
+    
