@@ -67,13 +67,27 @@ export function RoomCard({ room }: RoomCardProps) {
   const handleEnterRoomClick = (e: React.MouseEvent) => {
     if (!isValidRoomId) {
       e.preventDefault();
+      toast({
+        title: "Room Unavailable",
+        description: "This room ID is invalid or missing. Cannot enter.",
+        variant: "destructive",
+      });
       return;
     }
     if (room.admissionFee && room.admissionFee > 0) {
       e.preventDefault(); // Prevent direct navigation
+      if (!authUser) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to enter premium rooms.",
+          variant: "destructive",
+          action: <Button onClick={() => router.push('/login')}>Login</Button>,
+        });
+        return;
+      }
       setShowPremiumEntryDialog(true);
     }
-    // For free rooms, the Link component will handle navigation
+    // For free rooms, the Link component will handle navigation if asChild is true
   };
 
   const handleConfirmPremiumEntry = () => {
@@ -86,10 +100,11 @@ export function RoomCard({ room }: RoomCardProps) {
         title: "Entry Confirmed",
         description: `Welcome to ${room.name}! ${room.admissionFee} coins deducted. (Simulated)`,
       });
-      // Deduct coins (simulated)
-      // userService.deductCoins(authUser.id, room.admissionFee);
+      // userService.deductCoins(authUser.id, room.admissionFee); // Future implementation
       setShowPremiumEntryDialog(false);
-      router.push(roomLinkHref);
+      if (isValidRoomId) {
+        router.push(roomLinkHref);
+      }
     } else {
       toast({
         title: "Insufficient Coins",
@@ -103,7 +118,8 @@ export function RoomCard({ room }: RoomCardProps) {
 
 
   if (!isValidRoomId && typeof console !== 'undefined') { 
-    console.warn(`RoomCard: Invalid or missing room.id for room object: ${JSON.stringify(room)}. Disabling link.`);
+    // This console.warn will appear in the browser console as RoomCard is a client component
+    console.warn(`RoomCard: Invalid or missing room.id for room object: ${JSON.stringify(room)}. Disabling link and actions.`);
   }
 
   return (
@@ -159,23 +175,35 @@ export function RoomCard({ room }: RoomCardProps) {
         <CardFooter>
           <Button 
             onClick={handleEnterRoomClick}
-            asChild={!(room.admissionFee && room.admissionFee > 0)} // Only use asChild if it's not a premium room needing dialog
+            // Only use asChild (for Link) if it's NOT a premium room (which needs its own onClick for the dialog)
+            // AND if the room ID is valid.
+            asChild={!(room.admissionFee && room.admissionFee > 0) && isValidRoomId} 
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" 
-            disabled={!isValidRoomId}
+            disabled={!isValidRoomId} // Button is disabled if room ID is invalid
           >
             { (room.admissionFee && room.admissionFee > 0) ? (
-              // If premium, Button itself handles click for dialog
+              // If premium, Button itself handles click for dialog (no Link wrapper here)
               <>
                 <Diamond className="mr-2 h-4 w-4" /> Enter Premium Room
               </>
             ) : (
-              // If free, Button acts as child for Link
-              <Link 
-                href={roomLinkHref} 
-                aria-disabled={!isValidRoomId}
-              >
-                <LogIn className="mr-2 h-4 w-4" /> Enter Room
-              </Link>
+              // If free AND room ID is valid, Button acts as child for Link.
+              // If room ID is invalid, asChild is false, Button is disabled, Link is not rendered.
+              isValidRoomId ? (
+                <Link 
+                  href={roomLinkHref} 
+                  aria-disabled={!isValidRoomId} // This is somewhat redundant due to button's disabled state
+                >
+                  <LogIn className="mr-2 h-4 w-4" /> Enter Room
+                </Link>
+              ) : (
+                 // Fallback for Button content if not asChild (e.g. invalid room ID)
+                 // This case might not be strictly necessary due to `disabled={!isValidRoomId}` on Button
+                 // but provides explicit text for a disabled non-premium button.
+                <>
+                  <LogIn className="mr-2 h-4 w-4" /> Enter Room
+                </>
+              )
             )}
           </Button>
         </CardFooter>
@@ -185,7 +213,7 @@ export function RoomCard({ room }: RoomCardProps) {
         <AlertDialog open={showPremiumEntryDialog} onOpenChange={setShowPremiumEntryDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Enter Premium Room: {room.name}?</AlertDialogTitle>
+              <AlertDialogTitle>Enter Premium Room: {room.name || 'Unnamed Room'}?</AlertDialogTitle>
               <AlertDialogDescription>
                 This room requires an admission fee of <strong className="text-foreground">{room.admissionFee} coins</strong>.
                 Do you want to spend {room.admissionFee} coins to enter? (Coin balance check is simulated)
@@ -193,7 +221,7 @@ export function RoomCard({ room }: RoomCardProps) {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleConfirmPremiumEntry}>
+              <AlertDialogAction onClick={handleConfirmPremiumEntry} disabled={!authUser}>
                 Enter ({room.admissionFee} Coins)
               </AlertDialogAction>
             </AlertDialogFooter>
