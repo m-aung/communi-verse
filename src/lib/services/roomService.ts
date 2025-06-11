@@ -47,7 +47,7 @@ let mockRooms: Room[] = [
 // Mock mapping of room IDs to participant user IDs (Firebase UIDs or mock UIDs)
 const mockRoomParticipants: Record<string, string[]> = {
     'cosmic-cafe': ['user-alice-mock', 'user-charlie-mock'], 
-    'nebula-lounge': ['user-bob-mock'], 
+    'nebula-lounge': [], // This room will now have 0 users
     'galaxy-galleria': ['user-diana-mock', 'user-alice-mock', 'user-bob-mock'],
 };
 
@@ -131,3 +131,4 @@ export async function removeUserFromRoom(roomId: string, userId: string): Promis
       // console.log(`removeUserFromRoom: No participants list for room ${roomId} or user ${userId} not found.`);
     }
 }
+
