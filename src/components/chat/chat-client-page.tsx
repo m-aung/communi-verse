@@ -159,15 +159,15 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
 
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-180px)] max-h-[800px]">
-      <Card className="lg:w-1/4 shadow-md">
+    <div className="flex flex-1 flex-col lg:flex-row gap-6">
+      <Card className="flex flex-col max-h-[40vh] lg:max-h-full lg:w-1/4 shadow-md">
         <CardHeader>
           <CardTitle className="flex items-center text-lg">
             <Users className="mr-2 h-5 w-5" /> Participants ({room.userCount})
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[calc(100vh-300px)] lg:h-auto max-h-[650px] pr-3">
+        <CardContent className="flex flex-col flex-1 pt-0 overflow-hidden">
+          <ScrollArea className="flex-1 pr-3">
             {usersInRoom.length === 0 && (
                  <p className="text-sm text-muted-foreground text-center py-4">The room is empty.</p>
             )}
@@ -194,7 +194,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
             ))}
           </ScrollArea>
           {usersInRoom.length <= 1 && authUser && !usersInRoom.find(u => u.id !== authUser.id) && ( // Show if only current user is in room
-            <Button onClick={handleRingAction} variant="outline" className="w-full mt-4">
+            <Button onClick={handleRingAction} variant="outline" className="w-full mt-4 shrink-0">
               <Bell className="mr-2 h-4 w-4" /> Ring Followers
             </Button>
           )}
