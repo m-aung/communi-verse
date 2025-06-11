@@ -10,7 +10,7 @@
  * - addUserToRoom - Adds a user to a room (mock).
  * - removeUserFromRoom - Removes a user from a room (mock).
  */
-import type { Room, ChatUser, UserProfile } from '@/lib/types';
+import type { Room, ChatUser } from '@/lib/types';
 import { getUserProfile } from './userService'; // For fetching full profiles
 
 // Mock database for rooms
@@ -22,6 +22,7 @@ let mockRooms: Room[] = [
     capacity: 15,
     description: 'Relax and chat in a cozy cosmic atmosphere.',
     image: 'https://placehold.co/600x400.png',
+    userCount: 0
   },
   {
     id: 'nebula-lounge',
@@ -30,6 +31,7 @@ let mockRooms: Room[] = [
     capacity: 15,
     description: 'Discuss the latest stellar news in this vibrant lounge.',
     image: 'https://placehold.co/600x400.png',
+    userCount: 0
   },
   {
     id: 'galaxy-galleria',
@@ -38,11 +40,12 @@ let mockRooms: Room[] = [
     capacity: 15,
     description: 'A quiet place for deep conversations and making new friends.',
     image: 'https://placehold.co/600x400.png',
+    userCount: 0
   },
 ];
 
 // Mock mapping of room IDs to participant user IDs (Firebase UIDs or mock UIDs)
-let mockRoomParticipants: Record<string, string[]> = {
+const mockRoomParticipants: Record<string, string[]> = {
     'cosmic-cafe': ['user-alice-mock', 'user-charlie-mock'], 
     'nebula-lounge': ['user-bob-mock'], 
     'galaxy-galleria': ['user-diana-mock', 'user-alice-mock', 'user-bob-mock'],

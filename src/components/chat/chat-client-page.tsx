@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Bell, Gift, Users, Loader2 } from 'lucide-react';
+import { Send, Bell, Gift, Users, Loader2, UserPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth'; // Import useAuth
 import { getRoomParticipants, addUserToRoom, removeUserFromRoom } from '@/lib/services/roomService';
@@ -135,6 +135,14 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     });
   };
 
+  const handleFollowUser = (user: ChatUser) => {
+    toast({
+      title: 'Followed User!',
+      description: `You are now following ${user.name}. (This is a demo)`,
+      duration: 3000,
+    });
+  };
+
   if (isLoading || authLoading || !authUser && !authLoading ) { // Show loader if chat data or auth is loading, or if no user after auth check
     return (
       <div className="flex justify-center items-center h-[calc(100vh-180px)]">
@@ -173,9 +181,14 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
                   <span className="text-sm font-medium">{user.name} {user.id === authUser?.id ? "(You)" : ""}</span>
                 </div>
                 {user.id !== authUser?.id && (
-                  <Button variant="ghost" size="sm" onClick={() => handleGiftCoins(user)} title={`Gift coins to ${user.name}`}>
-                    <Gift className="h-4 w-4 text-yellow-500" />
-                  </Button>
+                  <div className="flex items-center space-x-1">
+                    <Button variant="ghost" size="sm" onClick={() => handleFollowUser(user)} title={`Follow ${user.name}`}>
+                      <UserPlus className="h-4 w-4 text-blue-500" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleGiftCoins(user)} title={`Gift coins to ${user.name}`}>
+                      <Gift className="h-4 w-4 text-yellow-500" />
+                    </Button>
+                  </div>
                 )}
               </div>
             ))}
