@@ -14,17 +14,16 @@ import { useAuth } from '@/hooks/useAuth';
 import { 
   addUserToRoom, 
   removeUserFromRoom,
-  // listenToRoomParticipants // Removed from here
 } from '@/lib/services/roomService';
-import { getUserProfile } from '@/lib/services/userService'; // For fetching profiles
+import { getUserProfile } from '@/lib/services/userService'; 
 import { getChatMessages, addChatMessage } from '@/lib/services/chatService';
 import { logGiftSent, logUserFollowed, logUserLeftRoom } from '@/lib/services/telemetryService';
 import { useRouter } from 'next/navigation';
-import { doc, onSnapshot, type Unsubscribe } from 'firebase/firestore'; // Import Unsubscribe and onSnapshot
-import { db } from '@/lib/firebase/clientApp'; // Import db for onSnapshot
+import { doc, onSnapshot, type Unsubscribe } from 'firebase/firestore'; 
+import { db } from '@/lib/firebase/clientApp'; 
 
 interface ChatClientPageProps {
-  room: Room; // Initial room data from server
+  room: Room; 
 }
 
 export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
@@ -47,63 +46,63 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     if (!authUser && !authLoading) {
       toast({ title: "Not Authenticated", description: "Please login to join the chat.", variant: "destructive" });
       router.push('/login');
+      setIsLoading(false); 
       return;
     }
 
     if (authUser && room.id) {
       setIsLoading(true); 
 
-      // Ensure user is added to the room
       addUserToRoom(room.id, authUser.id)
-        .then(added => {
-          // If added is false and room was full, a toast could be shown here,
-          // but participant listener will be source of truth for display
-        })
         .catch(error => {
           console.error("Error ensuring user is in room:", error);
           toast({ title: "Entry Error", description: "Could not ensure your presence in the room.", variant: "destructive" });
+        })
+        .finally(() => {
+          const roomDocRef = doc(db, 'rooms', room.id);
+          unsubscribeParticipantsRef.current = onSnapshot(roomDocRef, async (docSnap) => {
+            if (docSnap.exists()) {
+              const roomData = docSnap.data();
+              const participantIds: string[] = roomData.participantIds || [];
+              
+              setRoom(prevRoom => ({ ...prevRoom, name: roomData.name, description: roomData.description, capacity: roomData.capacity, image: roomData.image, userCount: participantIds.length }));
+
+              if (participantIds.length === 0) {
+                setUsersInRoom([]);
+                setIsLoading(false); // No participants to fetch
+              } else {
+                const participantsPromises = participantIds.map(async (userId) => {
+                  const profile = await getUserProfile(userId); 
+                  if (profile) {
+                    return {
+                      id: profile.id,
+                      name: profile.name,
+                      avatarUrl: profile.avatarUrl,
+                    };
+                  }
+                  return null; 
+                });
+                const resolvedParticipants = (await Promise.all(participantsPromises)).filter(
+                  (p): p is ChatUser => p !== null
+                );
+                setUsersInRoom(resolvedParticipants);
+                setIsLoading(false); 
+              }
+            } else {
+              console.warn(`Room ${room.id} not found while listening for participants.`);
+              setUsersInRoom([]);
+              setRoom(prevRoom => ({ ...prevRoom, userCount: 0 }));
+              setIsLoading(false);
+              toast({ title: "Room Error", description: "The chat room may no longer exist.", variant: "destructive" });
+              router.push('/'); 
+            }
+          }, (error) => {
+            console.error(`Error listening to room participants for room ${room.id}:`, error);
+            toast({ title: "Real-time Error", description: "Could not connect to real-time participant updates.", variant: "destructive" });
+            setIsLoading(false);
+          });
         });
       
-      // Set up client-side listener for room participants
-      const roomDocRef = doc(db, 'rooms', room.id);
-      unsubscribeParticipantsRef.current = onSnapshot(roomDocRef, async (docSnap) => {
-        if (docSnap.exists()) {
-          const roomData = docSnap.data();
-          const participantIds: string[] = roomData.participantIds || [];
-          
-          const participantsPromises = participantIds.map(async (userId) => {
-            const profile = await getUserProfile(userId); // Call Server Action
-            if (profile) {
-              return {
-                id: profile.id,
-                name: profile.name,
-                avatarUrl: profile.avatarUrl,
-              };
-            }
-            return null; 
-          });
-          const resolvedParticipants = (await Promise.all(participantsPromises)).filter(
-            (p): p is ChatUser => p !== null
-          );
-          
-          setUsersInRoom(resolvedParticipants);
-          setRoom(prevRoom => ({ ...prevRoom, name: roomData.name, description: roomData.description, capacity: roomData.capacity, image: roomData.image, userCount: participantIds.length }));
-          setIsLoading(false); // Initial load of participants complete
-        } else {
-          console.warn(`Room ${room.id} not found while listening for participants.`);
-          setUsersInRoom([]);
-          setRoom(prevRoom => ({ ...prevRoom, userCount: 0 }));
-          setIsLoading(false);
-          toast({ title: "Room Error", description: "The chat room may no longer exist.", variant: "destructive" });
-          router.push('/'); // Redirect if room is gone
-        }
-      }, (error) => {
-        console.error(`Error listening to room participants for room ${room.id}:`, error);
-        toast({ title: "Real-time Error", description: "Could not connect to real-time participant updates.", variant: "destructive" });
-        setIsLoading(false);
-      });
-
-      // Fetch initial chat messages
       getChatMessages(room.id)
         .then(fetchedMessages => {
           setMessages(fetchedMessages);
@@ -114,7 +113,6 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
         });
     }
     
-    // Cleanup
     const currentRoomId = room.id;
     let currentAuthUserId: string | null = authUser ? authUser.id : null;
 
@@ -129,7 +127,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room.id, authUser, authLoading]); // router and toast removed as they are stable
+  }, [room.id, authUser, authLoading]);
 
 
   useEffect(() => {
@@ -263,7 +261,10 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
         </CardHeader>
         <CardContent className="flex-1 flex flex-col p-0">
           <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-            {messages.length === 0 && !isLoading && ( 
+            {isLoading && messages.length === 0 && ( 
+                <p className="text-center text-muted-foreground py-4">Loading messages...</p>
+            )}
+            {!isLoading && messages.length === 0 && ( 
                 <p className="text-center text-muted-foreground py-4">No messages yet. Be the first to say something!</p>
             )}
             {messages.map((msg) => (
@@ -320,3 +321,5 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     </div>
   );
 }
+
+    
