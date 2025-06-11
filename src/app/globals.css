@@ -9,96 +9,96 @@ body {
 
 @layer base {
   :root {
-    /* Light Theme: Vibrant & Clean */
-    --background: 0 0% 98%; /* Very Light Gray / Almost White #FAFAFA */
-    --foreground: 220 10% 15%; /* Dark Cool Gray #21262B */
+    /* Light Theme: Vibrant Blue & Energetic Orange */
+    --background: 0 0% 98%;                     /* #FAFAFA */
+    --foreground: 220 10% 15%;                   /* #21262B */
 
-    --card: 0 0% 100%; /* White */
+    --card: 0 0% 100%;                           /* White */
     --card-foreground: 220 10% 15%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 220 10% 15%;
 
-    --primary: 260 85% 60%; /* Vibrant Purple #7F4CFF */
-    --primary-foreground: 0 0% 100%; /* White */
+    --primary: 217 90% 55%;                     /* Vibrant Blue #3B82F6 */
+    --primary-foreground: 0 0% 100%;             /* White */
 
-    --secondary: 210 15% 92%; /* Lighter gray for secondary elements #EAEBF0 */
-    --secondary-foreground: 220 10% 25%;
+    --secondary: 217 90% 95%;                   /* Lightest Blue */
+    --secondary-foreground: 217 90% 30%;        /* Darker Blue for text on secondary */
 
-    --muted: 210 15% 85%; /* #D2D6DB */
-    --muted-foreground: 210 10% 40%; /* For placeholder text on muted background #5C6672 */
+    --muted: 220 20% 94%;                       /* Very Light Gray */
+    --muted-foreground: 210 10% 45%;             /* Medium Gray */
 
-    --accent: 330 100% 60%; /* Vivid Pink #FF33A8 */
-    --accent-foreground: 0 0% 100%; /* White on pink */
+    --accent: 24 95% 53%;                       /* Vibrant Orange #F97316 */
+    --accent-foreground: 20 100% 10%;            /* Very Dark Brown/Almost Black for text on Orange */
     
-    --destructive: 0 75% 55%; /* #D94A4A */
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 75% 55%;                   /* Bright Red #D94A4A */
+    --destructive-foreground: 0 0% 98%;          /* Light text on destructive */
 
-    --border: 210 10% 88%; /* #DDE1E5 */
-    --input: 210 10% 92%; /* #E5E8EB */
-    --ring: 260 85% 65%; /* Primary color for focus rings #9166FF */
+    --border: 217 80% 90%;                      /* Light Blueish Gray */
+    --input: 217 80% 94%;                       /* Very Light Blueish Gray */
+    --ring: 217 90% 60%;                        /* Primary color for focus rings (slightly lighter primary) */
 
-    --chart-1: 260 85% 60%; /* primary */
-    --chart-2: 330 100% 60%; /* accent */
-    --chart-3: 190 80% 55%; /* Bright Teal */
-    --chart-4: 45 100% 55%; /* Bright Yellow/Orange */
-    --chart-5: 210 80% 60%; /* Bright Blue */
+    --chart-1: 217 90% 55%; /* primary blue */
+    --chart-2: 24 95% 53%;  /* accent orange */
+    --chart-3: 160 70% 45%; /* A contrasting teal/green */
+    --chart-4: 290 70% 55%; /* A contrasting purple */
+    --chart-5: 45 100% 50%; /* A bright yellow */
     --radius: 0.5rem;
 
-    --sidebar-background: 210 15% 95%;  /* Light theme sidebar */
-    --sidebar-foreground: 220 10% 15%;
-    --sidebar-primary: 260 85% 60%;
+    --sidebar-background: 220 20% 96%;
+    --sidebar-foreground: 220 10% 20%;
+    --sidebar-primary: 217 90% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 330 100% 60%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 210 10% 88%;
-    --sidebar-ring: 260 85% 65%;
+    --sidebar-accent: 24 95% 53%;
+    --sidebar-accent-foreground: 20 100% 10%;
+    --sidebar-border: 220 20% 88%;
+    --sidebar-ring: 217 90% 60%;
   }
 
   .dark {
-    /* Dark Theme: Neon Pulse */
-    --background: 224 30% 8%; /* Very Dark Blue/Gray #0F1217 */
-    --foreground: 210 30% 90%; /* Light Cool Gray #DBE1E8 */
+    /* Dark Theme: Tech Blue & Lively Orange */
+    --background: 220 25% 10%;                  /* Dark Blueish Gray #131720 */
+    --foreground: 210 30% 90%;                  /* Light Cool Gray #DBE1E8 */
 
-    --card: 222 30% 12%; /* Darker Card Background #161A23 */
+    --card: 220 25% 14%;                       /* Darker Card Background #1A1F2A */
     --card-foreground: 210 30% 90%;
 
-    --popover: 222 30% 12%;
+    --popover: 220 25% 14%;
     --popover-foreground: 210 30% 90%;
 
-    --primary: 260 100% 70%; /* Electric Purple #9A77FF */
-    --primary-foreground: 210 30% 95%; /* Brighter white for contrast on electric purple */
+    --primary: 217 90% 65%;                     /* Brighter Blue for dark mode #60A5FA */
+    --primary-foreground: 220 20% 15%;           /* Dark text for contrast on brighter blue */
 
-    --secondary: 220 25% 18%; /* Darker gray for secondary elements #232833 */
-    --secondary-foreground: 210 30% 80%; /* #BCC6D2 */
+    --secondary: 217 70% 25%;                   /* Darker Blue */
+    --secondary-foreground: 217 80% 75%;        /* Lighter Blue for text on secondary */
 
-    --muted: 220 20% 25%; /* #333947 */
-    --muted-foreground: 210 25% 65%; /* For placeholder text #8B9AAE */
+    --muted: 220 20% 28%;                       /* Medium-Dark Gray #383E4C */
+    --muted-foreground: 210 25% 70%;             /* Lighter Gray #9EADC2 */
 
-    --accent: 330 100% 65%; /* Neon Pink #FF4DD2 */
-    --accent-foreground: 210 30% 95%; 
+    --accent: 24 95% 63%;                       /* Brighter Orange for dark mode #FC9F54 */
+    --accent-foreground: 20 100% 10%;            /* Very Dark Brown/Almost Black for text on Orange */
 
-    --destructive: 0 80% 60%; /* #FF4D4D */
+    --destructive: 0 80% 60%;                   /* Bright Red #FF4D4D */
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 20% 20%; /* #2A303B */
-    --input: 220 20% 15%; /* #1D222B */
-    --ring: 260 100% 75%; /* Brighter primary for focus rings #AD8FFF */
+    --border: 220 20% 25%;                      /* Dark Gray #333947 */
+    --input: 220 20% 18%;                       /* Very Dark Gray #232833 */
+    --ring: 217 90% 70%;                        /* Brighter primary for focus rings #78B3FB */
 
-    --chart-1: 260 100% 70%; /* primary */
-    --chart-2: 330 100% 65%; /* accent */
-    --chart-3: 170 90% 55%; /* Neon Teal */
-    --chart-4: 50 100% 60%; /* Neon Yellow */
-    --chart-5: 200 90% 65%; /* Neon Cyan */
+    --chart-1: 217 90% 65%; /* primary blue (dark theme) */
+    --chart-2: 24 95% 63%;  /* accent orange (dark theme) */
+    --chart-3: 160 80% 55%; /* A contrasting teal/green (dark theme) */
+    --chart-4: 290 80% 65%; /* A contrasting purple (dark theme) */
+    --chart-5: 45 100% 60%; /* A bright yellow (dark theme) */
 
-    --sidebar-background: 222 30% 10%; /* Dark theme sidebar */
-    --sidebar-foreground: 210 30% 90%;
-    --sidebar-primary: 260 100% 70%;
-    --sidebar-primary-foreground: 210 30% 95%;
-    --sidebar-accent: 330 100% 65%;
-    --sidebar-accent-foreground: 210 30% 95%;
-    --sidebar-border: 220 20% 18%;
-    --sidebar-ring: 260 100% 75%;
+    --sidebar-background: 220 25% 12%;
+    --sidebar-foreground: 210 30% 85%;
+    --sidebar-primary: 217 90% 65%;
+    --sidebar-primary-foreground: 220 20% 15%;
+    --sidebar-accent: 24 95% 63%;
+    --sidebar-accent-foreground: 20 100% 10%;
+    --sidebar-border: 220 20% 20%;
+    --sidebar-ring: 217 90% 70%;
   }
 }
 
