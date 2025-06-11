@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import type { ChatMessage, ChatUser, Room, UserProfile } from '@/lib/types';
+import type { ChatMessage, ChatUser, Room } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,10 +16,10 @@ import {
   removeUserFromRoom,
 } from '@/lib/services/roomService';
 import { getUserProfile } from '@/lib/services/userService';
-import { getChatMessages, addChatMessage } from '@/lib/services/chatService';
+import { addChatMessage } from '@/lib/services/chatService'; // getChatMessages removed
 import { logGiftSent, logUserFollowed, logUserLeftRoom } from '@/lib/services/telemetryService';
 import { useRouter } from 'next/navigation';
-import { doc, onSnapshot, type Unsubscribe } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy, type Timestamp, type Unsubscribe } from 'firebase/firestore';
 import { db } from '@/lib/firebase/clientApp';
 
 interface ChatClientPageProps {
@@ -32,12 +32,14 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [usersInRoom, setUsersInRoom] = useState<ChatUser[]>([]);
-  const [isLoading, setIsLoading] = useState(true); // For initial page load
+  const [isLoading, setIsLoading] = useState(true);
   const [isRefreshingParticipants, setIsRefreshingParticipants] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const router = useRouter();
   const unsubscribeParticipantsRef = useRef<Unsubscribe | null>(null);
+  const unsubscribeMessagesRef = useRef<Unsubscribe | null>(null);
 
   useEffect(() => {
     if (authLoading) {
@@ -52,73 +54,80 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     }
 
     if (authUser && room.id) {
-      setIsLoading(true); // Start loading for initial setup
+      setIsLoading(true);
+      setIsLoadingMessages(true);
 
+      // Ensure user is in room (Firestore participants list)
       addUserToRoom(room.id, authUser.id)
         .catch(error => {
           console.error("Error ensuring user is in room:", error);
           toast({ title: "Entry Error", description: "Could not ensure your presence in the room.", variant: "destructive" });
-        })
-        .finally(() => {
-          const roomDocRef = doc(db, 'rooms', room.id);
-          unsubscribeParticipantsRef.current = onSnapshot(roomDocRef, async (docSnap) => {
-            setIsRefreshingParticipants(true);
-            if (docSnap.exists()) {
-              const roomData = docSnap.data();
-              const participantIds: string[] = roomData.participantIds || [];
+        });
 
-              setRoom(prevRoom => ({ ...prevRoom, name: roomData.name, description: roomData.description, capacity: roomData.capacity, image: roomData.image, userCount: participantIds.length }));
+      // Listener for Participants
+      const roomDocRef = doc(db, 'rooms', room.id);
+      unsubscribeParticipantsRef.current = onSnapshot(roomDocRef, async (docSnap) => {
+        setIsRefreshingParticipants(true);
+        if (docSnap.exists()) {
+          const roomData = docSnap.data();
+          const participantIds: string[] = roomData.participantIds || [];
 
-              if (participantIds.length === 0) {
-                setUsersInRoom([]);
-              } else {
-                try {
-                  const participantsPromises = participantIds.map(async (userId) => {
-                    const profile = await getUserProfile(userId);
-                    if (profile) {
-                      return {
-                        id: profile.id,
-                        name: profile.name,
-                        avatarUrl: profile.avatarUrl,
-                      };
-                    }
-                    return null;
-                  });
-                  const resolvedParticipants = (await Promise.all(participantsPromises)).filter(
-                    (p): p is ChatUser => p !== null
-                  );
-                  setUsersInRoom(resolvedParticipants);
-                } catch (profileError) {
-                  console.error("Error fetching participant profiles:", profileError);
-                  toast({ title: "Profile Error", description: "Could not load all participant details.", variant: "destructive" });
-                  // Potentially set usersInRoom to a partial list or an empty list depending on desired error handling
-                }
-              }
-            } else {
-              console.warn(`Room ${room.id} not found while listening for participants.`);
-              setUsersInRoom([]);
-              setRoom(prevRoom => ({ ...prevRoom, userCount: 0 }));
-              toast({ title: "Room Error", description: "The chat room may no longer exist.", variant: "destructive" });
-              router.push('/');
+          setRoom(prevRoom => ({ ...prevRoom, name: roomData.name, description: roomData.description, capacity: roomData.capacity, image: roomData.image, userCount: participantIds.length }));
+
+          if (participantIds.length === 0) {
+            setUsersInRoom([]);
+          } else {
+            try {
+              const participantsPromises = participantIds.map(async (userId) => {
+                const profile = await getUserProfile(userId);
+                return profile ? { id: profile.id, name: profile.name, avatarUrl: profile.avatarUrl } : null;
+              });
+              const resolvedParticipants = (await Promise.all(participantsPromises)).filter(
+                (p): p is ChatUser => p !== null
+              );
+              setUsersInRoom(resolvedParticipants);
+            } catch (profileError) {
+              console.error("Error fetching participant profiles:", profileError);
+              toast({ title: "Profile Error", description: "Could not load all participant details.", variant: "destructive" });
             }
-            setIsRefreshingParticipants(false);
-            setIsLoading(false); // Initial load complete after first snapshot processing
-          }, (error) => {
-            console.error(`Error listening to room participants for room ${room.id}:`, error);
-            toast({ title: "Real-time Error", description: "Could not connect to real-time participant updates.", variant: "destructive" });
-            setIsRefreshingParticipants(false);
-            setIsLoading(false);
-          });
-        });
+          }
+        } else {
+          console.warn(`Room ${room.id} not found while listening for participants.`);
+          setUsersInRoom([]);
+          setRoom(prevRoom => ({ ...prevRoom, userCount: 0 }));
+          toast({ title: "Room Error", description: "The chat room may no longer exist.", variant: "destructive" });
+          router.push('/');
+        }
+        setIsRefreshingParticipants(false);
+        setIsLoading(false); // Main loading false after first participant snapshot
+      }, (error) => {
+        console.error(`Error listening to room participants for room ${room.id}:`, error);
+        toast({ title: "Real-time Error", description: "Could not connect to real-time participant updates.", variant: "destructive" });
+        setIsRefreshingParticipants(false);
+        setIsLoading(false);
+      });
 
-      getChatMessages(room.id)
-        .then(fetchedMessages => {
-          setMessages(fetchedMessages);
-        })
-        .catch(error => {
-          console.error("Error fetching chat messages:", error);
-          toast({ title: "Error", description: "Could not load messages.", variant: "destructive" });
+      // Listener for Messages
+      const messagesCollectionRef = collection(db, 'rooms', room.id, 'messages');
+      const qMessages = query(messagesCollectionRef, orderBy('timestamp', 'asc'));
+      unsubscribeMessagesRef.current = onSnapshot(qMessages, (querySnapshot) => {
+        const fetchedMessages = querySnapshot.docs.map(docSnap => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            roomId: room.id,
+            sender: data.sender as ChatUser,
+            text: data.text,
+            timestamp: (data.timestamp as Timestamp)?.toDate() || new Date(),
+          } as ChatMessage;
         });
+        setMessages(fetchedMessages);
+        setIsLoadingMessages(false);
+      }, (error) => {
+        console.error(`Error listening to messages for room ${room.id}:`, error);
+        toast({ title: "Message Error", description: "Could not load real-time messages.", variant: "destructive" });
+        setIsLoadingMessages(false);
+      });
     }
 
     const currentRoomId = room.id;
@@ -127,6 +136,9 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     return () => {
       if (unsubscribeParticipantsRef.current) {
         unsubscribeParticipantsRef.current();
+      }
+      if (unsubscribeMessagesRef.current) {
+        unsubscribeMessagesRef.current();
       }
       if (currentAuthUserId && currentRoomId) {
         removeUserFromRoom(currentRoomId, currentAuthUserId).catch(err => {
@@ -148,8 +160,8 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
   const handleSendMessage = async () => {
     if (newMessage.trim() === '' || !authUser) return;
     try {
-      const sentMessage = await addChatMessage(room.id, authUser, newMessage);
-      setMessages(prevMessages => [...prevMessages, sentMessage]);
+      // Message is added to Firestore; onSnapshot listener will update the UI.
+      await addChatMessage(room.id, authUser, newMessage);
       setNewMessage('');
     } catch (error) {
       console.error("Error sending message:", error);
@@ -201,7 +213,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     }
   };
 
-  if (isLoading) { // This isLoading gates the entire page until first participant snapshot
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center h-[calc(100vh-180px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -282,10 +294,10 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
         </CardHeader>
         <CardContent className="flex-1 flex flex-col p-0">
           <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-            {isLoading && messages.length === 0 && (
+            {isLoadingMessages && messages.length === 0 && (
                 <p className="text-center text-muted-foreground py-4">Loading messages...</p>
             )}
-            {!isLoading && messages.length === 0 && (
+            {!isLoadingMessages && messages.length === 0 && (
                 <p className="text-center text-muted-foreground py-4">No messages yet. Be the first to say something!</p>
             )}
             {messages.map((msg) => (
@@ -329,9 +341,9 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 className="flex-1"
-                disabled={authLoading || isLoading}
+                disabled={authLoading || isLoading || isLoadingMessages}
               />
-              <Button type="submit" variant="default" disabled={authLoading || isLoading || newMessage.trim() === ''}>
+              <Button type="submit" variant="default" disabled={authLoading || isLoading || isLoadingMessages || newMessage.trim() === ''}>
                 <Send className="h-4 w-4" />
                 <span className="sr-only">Send</span>
               </Button>
