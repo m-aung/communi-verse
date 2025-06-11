@@ -21,7 +21,9 @@ import {
   getDocs, 
   arrayUnion, 
   arrayRemove,
-  type DocumentSnapshot
+  writeBatch,
+  type DocumentSnapshot,
+  type Unsubscribe
 } from 'firebase/firestore';
 import { getUserProfile } from './userService';
 
@@ -39,6 +41,7 @@ const transformRoomDoc = (docSnap: DocumentSnapshot | { id: string; data: () => 
     image: data.image,
     description: data.description,
     participantIds: participantIds,
+    admissionFee: data.admissionFee || 0,
     userCount: participantIds.length, // Derived userCount
   } as Room & { userCount: number };
 };
@@ -48,47 +51,68 @@ export async function getRoom(roomId: string): Promise<(Room & { userCount: numb
   try {
     const roomDocRef = doc(db, 'rooms', roomId);
     const roomDocSnap = await getDoc(roomDocRef);
-    if (roomDocSnap.exists()) {
-      const data = roomDocSnap.data();
-      const participantIds = data.participantIds || [];
-      return {
-        id: roomDocSnap.id,
-        name: data.name,
-        capacity: data.capacity,
-        image: data.image,
-        description: data.description,
-        participantIds: participantIds,
-        userCount: participantIds.length,
-      };
-    }
-    return null;
+    return transformRoomDoc(roomDocSnap);
   } catch (error) {
     console.error(`Error fetching room ${roomId}:`, error);
     return null;
   }
 }
 
+async function createDefaultRooms(): Promise<(Room & { userCount: number })[]> {
+  const batch = writeBatch(db);
+  const defaultRoomsData: Omit<Room, 'id' | 'participantIds' | 'userCount'>[] = [
+    { name: 'Cosmic Cafe', capacity: 15, description: 'Relax and chat in a cozy cosmic atmosphere', image: 'https://placehold.co/600x400.png', admissionFee: 0 },
+    { name: 'Nebula Lounge', capacity: 20, description: 'Discuss the latest stellar news in this vibrant lounge.', image: 'https://placehold.co/600x400.png', admissionFee: 0 },
+    { name: 'VIP Skydeck', capacity: 10, description: 'Exclusive access room for VIP members.', image: 'https://placehold.co/600x400.png', admissionFee: 50 },
+  ];
+
+  const createdRooms: (Room & { userCount: number })[] = [];
+
+  defaultRoomsData.forEach(roomData => {
+    const roomId = roomData.name.toLowerCase().replace(/\s+/g, '-') + `-${Date.now().toString().slice(-5)}`;
+    const newRoom: Room = {
+      id: roomId,
+      ...roomData,
+      participantIds: [],
+    };
+    const roomDocRef = doc(db, 'rooms', roomId);
+    batch.set(roomDocRef, newRoom);
+    createdRooms.push({ ...newRoom, userCount: 0 });
+  });
+
+  try {
+    await batch.commit();
+    console.log("Default rooms created successfully.");
+    return createdRooms;
+  } catch (error) {
+    console.error("Error creating default rooms with batch:", error);
+    throw error; // Re-throw to be handled by getAllRooms
+  }
+}
+
+
 export async function getAllRooms(): Promise<(Room & { userCount: number })[]> {
   try {
     const roomsCollectionRef = collection(db, 'rooms');
     const querySnapshot = await getDocs(roomsCollectionRef);
+    
+    if (querySnapshot.empty) {
+      console.log("No rooms found in Firestore. Creating default rooms...");
+      return await createDefaultRooms();
+    }
+
     const rooms: (Room & { userCount: number })[] = [];
     querySnapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      const participantIds = data.participantIds || [];
-      rooms.push({
-        id: docSnap.id,
-        name: data.name,
-        capacity: data.capacity,
-        image: data.image,
-        description: data.description,
-        participantIds: participantIds,
-        userCount: participantIds.length,
-      });
+      const room = transformRoomDoc(docSnap);
+      if (room) {
+        rooms.push(room);
+      }
     });
     return rooms;
   } catch (error) {
     console.error("Error fetching all rooms:", error);
+    // If createDefaultRooms failed, this will return empty or rethrow.
+    // For robustness, might return [] or rethrow error
     return [];
   }
 }
@@ -101,6 +125,7 @@ export async function createRoom(roomData: Omit<Room, 'id' | 'participantIds'>):
     capacity: roomData.capacity,
     description: roomData.description || '',
     image: roomData.image || 'https://placehold.co/600x400.png',
+    admissionFee: roomData.admissionFee || 0,
     participantIds: [], // Initialize with empty participants
   };
   try {
@@ -187,6 +212,3 @@ export async function removeUserFromRoom(roomId: string, userId: string): Promis
     return false;
   }
 }
-
-// listenToRoomParticipants function has been removed from here.
-// Its logic is now directly implemented in ChatClientPage.tsx for client-side listening.

@@ -6,6 +6,7 @@ export interface UserProfile {
   email?: string;
   bio?: string;
   isOnline?: boolean;
+  coinBalance?: number; // Added for future coin management
 }
 
 export interface Room {
@@ -15,6 +16,7 @@ export interface Room {
   image?: string;
   description?: string;
   participantIds: string[]; // Array of Firebase UIDs for users in the room
+  admissionFee?: number; // Optional: cost in coins to enter
   // userCount will be derived from participantIds.length when fetching
 }
 
