@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth'; // Import useAuth
 import { getRoomParticipants, addUserToRoom, removeUserFromRoom } from '@/lib/services/roomService';
 import { getChatMessages, addChatMessage } from '@/lib/services/chatService';
+import { logGiftSent, logUserFollowed, logUserLeftRoom } from '@/lib/services/telemetryService'; // Import telemetry functions
 import { useRouter } from 'next/navigation';
 
 interface ChatClientPageProps {
@@ -91,6 +92,10 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
         // console.log(`ChatClientPage unmounting/changing room. Removing user ${currentAuthUserId} from ${currentRoomId}`);
         removeUserFromRoom(currentRoomId, currentAuthUserId).then(() => {
             // console.log(`User ${currentAuthUserId} marked as left room ${currentRoomId} after cleanup.`);
+            // Log leaving action here as well if user closes tab/navigates away while in room
+            // This might be slightly redundant if handleLeaveRoom is also called, but covers more cases.
+            // Be mindful of potential double-logging if not handled carefully.
+            // For now, primary logging is in handleLeaveRoom for explicit leave.
         }).catch(err => {
             // console.error(`Error removing user ${currentAuthUserId} from room ${currentRoomId} during cleanup:`, err);
         });
@@ -128,25 +133,30 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
   };
 
   const handleGiftCoins = (user: ChatUser) => {
+    if (!authUser) return;
     toast({
       title: 'Coins Gifted!',
       description: `You gifted coins to ${user.name}. (This is a demo)`,
       duration: 3000,
     });
+    logGiftSent(authUser.id, user.id, room.id);
   };
 
   const handleFollowUser = (user: ChatUser) => {
+    if (!authUser) return;
     toast({
       title: 'Followed User!',
       description: `You are now following ${user.name}. (This is a demo)`,
       duration: 3000,
     });
+    logUserFollowed(authUser.id, user.id, room.id);
   };
 
   const handleLeaveRoom = async () => {
     if (!authUser) return;
     try {
       await removeUserFromRoom(room.id, authUser.id);
+      logUserLeftRoom(authUser.id, room.id); // Log leaving action
       toast({
         title: 'Left Room',
         description: `You have left ${room.name}.`,
@@ -284,4 +294,3 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     </div>
   );
 }
-

@@ -47,3 +47,38 @@ export interface CoinPackage {
   image?: string;
   description?: string;
 }
+
+// Telemetry Action Types
+export interface UserActionBase {
+  id?: string; // Firestore will generate this
+  userId: string; // The user performing the action (Firebase UID)
+  timestamp: any; // Firestore serverTimestamp placeholder, will be set by server
+  actionType: 'giftSent' | 'userFollowed' | 'userLeftRoom';
+  roomId: string; // Context where the action occurred
+}
+
+export interface GiftSentAction extends UserActionBase {
+  actionType: 'giftSent';
+  payload: {
+    gifterId: string; // Typically same as userId in UserActionBase
+    receiverId: string;
+    // giftDetails?: any; // e.g. coinAmount, could be added later
+  };
+}
+
+export interface UserFollowedAction extends UserActionBase {
+  actionType: 'userFollowed';
+  payload: {
+    followerId: string; // Typically same as userId in UserActionBase
+    followedUserId: string;
+  };
+}
+
+export interface UserLeftRoomAction extends UserActionBase {
+  actionType: 'userLeftRoom';
+  payload: {
+    // No specific payload needed beyond base info for leaving
+  };
+}
+
+export type UserAction = GiftSentAction | UserFollowedAction | UserLeftRoomAction;
