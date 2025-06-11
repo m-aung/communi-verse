@@ -119,10 +119,10 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     }
   };
 
-  const handleRingFriends = () => {
+  const handleRingAction = () => { // Renamed from handleRingFriends
     toast({
-      title: 'Friends Ringed!',
-      description: `Your friends have been notified to join ${room.name}. (This is a demo)`,
+      title: 'Followers Ringed!',
+      description: `Your followers have been notified to join ${room.name}. (This is a demo)`,
       duration: 3000,
     });
   };
@@ -194,8 +194,8 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
             ))}
           </ScrollArea>
           {usersInRoom.length <= 1 && authUser && !usersInRoom.find(u => u.id !== authUser.id) && ( // Show if only current user is in room
-            <Button onClick={handleRingFriends} variant="outline" className="w-full mt-4">
-              <Bell className="mr-2 h-4 w-4" /> Ring Friends
+            <Button onClick={handleRingAction} variant="outline" className="w-full mt-4">
+              <Bell className="mr-2 h-4 w-4" /> Ring Followers
             </Button>
           )}
         </CardContent>
@@ -264,3 +264,4 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     </div>
   );
 }
+
