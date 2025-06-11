@@ -36,11 +36,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
       if (fbUser) {
-        // Set basic user information immediately from Firebase
+        // Set basic user information immediately from Firebase for responsiveness
+        // This name might be temporary if a more specific one is in userService
+        const initialDisplayName = fbUser.displayName || fbUser.email?.split('@')[0] || 'User';
         setUser({
           id: fbUser.uid,
-          name: fbUser.displayName || fbUser.email?.split('@')[0] || 'User',
-          avatarUrl: fbUser.photoURL || `https://placehold.co/40x40.png?text=${(fbUser.displayName || fbUser.email || 'U').substring(0,1).toUpperCase()}`
+          name: initialDisplayName,
+          avatarUrl: fbUser.photoURL || `https://placehold.co/40x40.png?text=${initialDisplayName.substring(0,1).toUpperCase()}`
         });
         setLoading(false); // Firebase auth state is known, set loading to false.
 
@@ -48,19 +50,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           let appProfile = await fetchUserServiceProfile(fbUser.uid);
           if (!appProfile) {
-            const newName = fbUser.displayName || fbUser.email?.split('@')[0] || 'New User';
+            // Profile doesn't exist in our app's user service, let's create it.
+            // Prioritize Firebase displayName, then a generic placeholder. Avoid email prefix.
+            let nameForNewProfile = 'New User'; // Default placeholder
+            if (fbUser.displayName && fbUser.displayName.trim() !== '') {
+              nameForNewProfile = fbUser.displayName.trim();
+            }
+            
             appProfile = await createUserProfile({ 
               id: fbUser.uid, 
-              name: newName, 
+              name: nameForNewProfile, 
               email: fbUser.email || '',
-              avatarUrl: fbUser.photoURL || `https://placehold.co/40x40.png?text=${newName.substring(0,1).toUpperCase()}`,
+              avatarUrl: fbUser.photoURL || `https://placehold.co/40x40.png?text=${nameForNewProfile.substring(0,1).toUpperCase()}`,
               isOnline: false, 
               bio: '' 
             });
           }
           
           if (appProfile) {
-            setUser({ // Update user context with more detailed profile
+            setUser({ // Update user context with more detailed profile from userService
               id: appProfile.id,
               name: appProfile.name,
               avatarUrl: appProfile.avatarUrl,
@@ -77,42 +85,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => unsubscribe();
-  }, []); // Empty dependency array is correct for onAuthStateChanged
+  }, []);
 
   const login = async (email: string, pass: string) => {
-    setLoading(true); // Indicate loading during login process
+    setLoading(true); 
     await signInWithEmailAndPassword(auth, email, pass);
-    // onAuthStateChanged will handle setting user and setLoading(false)
     router.push('/');
   };
 
   const signup = async (email: string, pass: string, name: string) => {
-    setLoading(true); // Indicate loading during signup process
+    setLoading(true); 
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     const fbUser = userCredential.user;
     if (fbUser) {
-      // Create a corresponding profile in our userService
-      // This is now also done in onAuthStateChanged, but can be kept here for immediate profile creation if desired.
-      // However, to avoid races, it's often better to let onAuthStateChanged handle profile sync.
-      // For this change, we'll rely on onAuthStateChanged to create the profile if it doesn't exist.
-      // We could pre-create it here, but the async nature of onAuthStateChanged should pick it up.
        await createUserProfile({
         id: fbUser.uid,
-        name: name,
+        name: name, // Name from the signup form
         email: fbUser.email || '',
         avatarUrl: `https://placehold.co/40x40.png?text=${name.substring(0,1).toUpperCase()}`,
         isOnline: false,
         bio: '',
       });
     }
-    // onAuthStateChanged will handle setting user and setLoading(false)
     router.push('/');
   };
 
   const logout = async () => {
-    setLoading(true); // Indicate loading during logout process
+    setLoading(true); 
     await firebaseSignOut(auth);
-    // onAuthStateChanged will handle setting user to null and setLoading(false)
     router.push('/login');
   };
 
