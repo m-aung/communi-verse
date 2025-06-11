@@ -11,11 +11,11 @@ export interface UserProfile {
 export interface Room {
   id: string;
   name: string;
-  userCount: number;
   capacity: number;
   image?: string;
   description?: string;
-  // participants?: ChatUser[]; // Or fetch separately
+  participantIds: string[]; // Array of Firebase UIDs for users in the room
+  // userCount will be derived from participantIds.length when fetching
 }
 
 export interface ChatUser {
