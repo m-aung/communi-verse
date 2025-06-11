@@ -1,103 +1,108 @@
 
 'use server';
 /**
- * @fileOverview User service for managing user profiles.
+ * @fileOverview User service for managing user profiles in Firestore.
  * Links with Firebase Auth UID.
  *
- * - getUserProfile - Fetches a user profile by Firebase UID.
- * - updateUserProfile - Updates a user profile.
- * - createUserProfile - Creates a new user profile.
- * - getAllUsers - Fetches all user profiles (for mocking purposes).
- * - getCurrentUser - Fetches the current authenticated user's ChatUser representation.
+ * - getUserProfile - Fetches a user profile by Firebase UID from Firestore.
+ * - updateUserProfile - Updates a user profile in Firestore.
+ * - createUserProfile - Creates a new user profile in Firestore.
+ * - getAllUsers - Fetches all user profiles from Firestore.
  */
-import type { UserProfile, ChatUser } from '@/lib/types';
-import { auth } from '@/lib/firebase/clientApp'; // To check auth state if needed, though primarily driven by hook
+import type { UserProfile } from '@/lib/types';
+import { db } from '@/lib/firebase/clientApp';
+import { doc, getDoc, setDoc, updateDoc, collection, getDocs, Timestamp } from 'firebase/firestore';
 
-// Mock database for user profiles, ID should now be Firebase UID
-// This array acts as our "database" for mock user profiles.
-let mockUserProfiles: UserProfile[] = [
-  { id: 'user-alice-mock', name: 'Alice Wonderland', avatarUrl: 'https://placehold.co/40x40.png?text=AW', isOnline: true, email: 'alice@example.com', bio: 'Loves exploring rabbit holes.' },
-  { id: 'user-bob-mock', name: 'Bob The Builder', avatarUrl: 'https://placehold.co/40x40.png?text=BB', isOnline: false, email: 'bob@example.com', bio: 'Can he fix it? Yes, he can!' },
-  { id: 'user-charlie-mock', name: 'Charlie Brown', avatarUrl: 'https://placehold.co/40x40.png?text=CB', isOnline: true, email: 'charlie@example.com', bio: 'Good grief.' },
-  { id: 'user-diana-mock', name: 'Diana Prince', avatarUrl: 'https://placehold.co/40x40.png?text=DP', isOnline: false, email: 'diana@example.com', bio: 'Fighting for those who cannot fight for themselves.' }
-];
-
+// Mock database (mockUserProfiles array) is now removed. Firestore is the source of truth.
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
-  // userId is expected to be Firebase UID
-  const profile = mockUserProfiles.find(p => p.id === userId);
-  return profile ? { ...profile } : null;
+  if (!userId) {
+    console.error("getUserProfile: userId is undefined or null");
+    return null;
+  }
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    const userDocSnap = await getDoc(userDocRef);
+
+    if (userDocSnap.exists()) {
+      // Convert Firestore Timestamps to JS Date objects if necessary
+      const data = userDocSnap.data();
+      // Example: if you store dates and they come back as Timestamps
+      // if (data.createdAt && data.createdAt instanceof Timestamp) {
+      //   data.createdAt = data.createdAt.toDate();
+      // }
+      return { id: userDocSnap.id, ...data } as UserProfile;
+    } else {
+      // console.log(`No profile found for user ${userId}`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`Error fetching user profile for ${userId}:`, error);
+    return null;
+  }
 }
 
 export async function getAllUsers(): Promise<UserProfile[]> {
-  return [...mockUserProfiles];
+  try {
+    const usersCollectionRef = collection(db, 'users');
+    const querySnapshot = await getDocs(usersCollectionRef);
+    const users: UserProfile[] = [];
+    querySnapshot.forEach((docSnap) => {
+      users.push({ id: docSnap.id, ...docSnap.data() } as UserProfile);
+    });
+    return users;
+  } catch (error) {
+    console.error("Error fetching all users:", error);
+    return [];
+  }
 }
-
-export async function getCurrentUser(): Promise<ChatUser | null> {
-  // This function's purpose changes slightly.
-  // The `useAuth` hook is the primary source of the current FirebaseUser and basic ChatUser.
-  // This function could be used by server components that need user info if they can't use the hook,
-  // or to get the *extended* UserProfile based on Firebase auth.
-  // For simplicity, we'll assume this might be called server-side or where `useAuth` isn't available.
-
-  // The following is a conceptual placeholder for how it might work.
-  // It doesn't have access to the client-side Firebase auth state directly here.
-  // Components should rely on `useAuth` for the current user.
-  // This mock will return the first user for demonstration if no specific logic is in place.
-  
-  // If we want this to reflect the *currently signed-in Firebase user's app profile*:
-  // This function would typically be called with a UID from a server-side auth check.
-  // Since we are in a 'use server' file and `auth` from `clientApp` is client-side,
-  // we can't directly use `auth.currentUser` here reliably for server execution.
-  // The `useAuth` hook is the correct way to get the current user on the client.
-
-  // Let's adjust it: this function is now less about "the" current user,
-  // and more about "a" user profile if `useAuth` isn't available.
-  // For actual "current user" object, useAuth hook is the way.
-  // Let's return null to emphasize that `useAuth` is the source of truth for the current user.
-  return null; 
-}
-
 
 export async function updateUserProfile(userId: string, data: Partial<Omit<UserProfile, 'id'>>): Promise<UserProfile | null> {
-  // userId is expected to be Firebase UID
-  const profileIndex = mockUserProfiles.findIndex(p => p.id === userId);
-  if (profileIndex !== -1) {
-    mockUserProfiles[profileIndex] = { ...mockUserProfiles[profileIndex], ...data };
-    return { ...mockUserProfiles[profileIndex] };
+  if (!userId) {
+    console.error("updateUserProfile: userId is undefined or null");
+    return null;
   }
-  // If profile doesn't exist, let's create it as part of the update, common for first-time updates.
-  const { name, email, avatarUrl, isOnline, bio } = data;
-  if (name && email) { // Basic requirement for a new profile
-    const newProfile: UserProfile = {
-      id: userId,
-      name: name,
-      email: email,
-      avatarUrl: avatarUrl || `https://placehold.co/40x40.png?text=${name.substring(0,1).toUpperCase()}`,
-      isOnline: isOnline || false,
-      bio: bio || '',
-    };
-    return await createUserProfile(newProfile);
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    // Ensure document exists before updating, or handle potential error
+    const docSnap = await getDoc(userDocRef);
+    if (!docSnap.exists()) {
+      // console.warn(`Attempted to update non-existent profile for user ${userId}. Consider creating first.`);
+      // Optionally, create it here if that's desired behavior for an "update"
+      // For now, we'll stick to strict update. ProfileForm should only call this if profile exists.
+      return null;
+    }
+    await updateDoc(userDocRef, data);
+    const updatedProfile = await getUserProfile(userId); // Fetch the updated profile
+    return updatedProfile;
+  } catch (error) {
+    console.error(`Error updating user profile for ${userId}:`, error);
+    return null;
   }
-  return null;
 }
 
 export async function createUserProfile(profileData: UserProfile): Promise<UserProfile> {
-  // profileData.id is expected to be Firebase UID
-  const existingIndex = mockUserProfiles.findIndex(p => p.id === profileData.id);
-  if (existingIndex !== -1) {
-    // If user already exists, update the existing profile.
-    mockUserProfiles[existingIndex] = { ...mockUserProfiles[existingIndex], ...profileData };
-    return { ...mockUserProfiles[existingIndex] };
+   if (!profileData || !profileData.id) {
+    throw new Error("createUserProfile: profileData or profileData.id is undefined or null");
   }
-  
-  const newUserProfile: UserProfile = { 
-    ...profileData, 
-    isOnline: profileData.isOnline !== undefined ? profileData.isOnline : false,
-    bio: profileData.bio || '',
-    avatarUrl: profileData.avatarUrl || `https://placehold.co/40x40.png?text=${profileData.name.substring(0,1).toUpperCase()}`,
-   };
-  mockUserProfiles.push(newUserProfile);
-  return { ...newUserProfile };
+  try {
+    const userDocRef = doc(db, 'users', profileData.id);
+    
+    // Ensure all required fields have defaults if not provided
+    const completeProfileData: UserProfile = {
+      ...profileData,
+      name: profileData.name || 'New User',
+      email: profileData.email || '',
+      avatarUrl: profileData.avatarUrl || `https://placehold.co/40x40.png?text=${(profileData.name || 'N').substring(0,1).toUpperCase()}`,
+      isOnline: profileData.isOnline !== undefined ? profileData.isOnline : false,
+      bio: profileData.bio || '',
+    };
+    
+    await setDoc(userDocRef, completeProfileData);
+    return completeProfileData;
+  } catch (error) {
+    console.error(`Error creating user profile for ${profileData.id}:`, error);
+    // Re-throw or return a specific error structure
+    throw error; 
+  }
 }
-

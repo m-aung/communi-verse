@@ -1,7 +1,7 @@
 
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { Auth, getAuth } from 'firebase/auth';
-// import { Firestore, getFirestore } from 'firebase/firestore'; // Uncomment if you use Firestore
+import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
+import { type Auth, getAuth } from 'firebase/auth';
+import { type Firestore, getFirestore } from 'firebase/firestore'; // Uncommented
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -14,21 +14,29 @@ const firebaseConfig = {
 
 let app: FirebaseApp;
 let auth: Auth;
-// let db: Firestore; // Uncomment if you use Firestore
+let db: Firestore; // Uncommented
 
 if (typeof window !== 'undefined' && !getApps().length) {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
-  // db = getFirestore(app); // Uncomment if you use Firestore
+  db = getFirestore(app); // Uncommented
 } else if (typeof window !== 'undefined') {
   app = getApp();
   auth = getAuth(app);
-  // db = getFirestore(app); // Uncomment if you use Firestore
+  db = getFirestore(app); // Uncommented and ensure it's assigned
 } else {
   // Handle server-side rendering or environment without window
   // For client-side auth, these might not be strictly necessary on server,
   // but good to have placeholders or conditional logic if Firebase admin SDK is used elsewhere.
+  // If getApps().length > 0 on server, it means an app instance (likely admin) might already exist.
+  // For client SDK on server (Next.js RSC/Server Actions), initialize if no apps exist.
+  if (!getApps().length) {
+    app = initializeApp(firebaseConfig);
+  } else {
+    app = getApp();
+  }
+  auth = getAuth(app); // Can be initialized on server for some client SDK uses
+  db = getFirestore(app); // Can be initialized on server
 }
 
-// @ts-ignore
-export { app, auth /*, db */ };
+export { app, auth, db }; // Export db
