@@ -13,8 +13,6 @@ import type { UserProfile } from '@/lib/types';
 import { db } from '@/lib/firebase/clientApp';
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs, Timestamp } from 'firebase/firestore';
 
-// Mock database (mockUserProfiles array) is now removed. Firestore is the source of truth.
-
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   if (!userId) {
     console.error("getUserProfile: userId is undefined or null");
@@ -25,15 +23,9 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
     const userDocSnap = await getDoc(userDocRef);
 
     if (userDocSnap.exists()) {
-      // Convert Firestore Timestamps to JS Date objects if necessary
       const data = userDocSnap.data();
-      // Example: if you store dates and they come back as Timestamps
-      // if (data.createdAt && data.createdAt instanceof Timestamp) {
-      //   data.createdAt = data.createdAt.toDate();
-      // }
       return { id: userDocSnap.id, ...data } as UserProfile;
     } else {
-      // console.log(`No profile found for user ${userId}`);
       return null;
     }
   } catch (error) {
@@ -64,16 +56,12 @@ export async function updateUserProfile(userId: string, data: Partial<Omit<UserP
   }
   try {
     const userDocRef = doc(db, 'users', userId);
-    // Ensure document exists before updating, or handle potential error
     const docSnap = await getDoc(userDocRef);
     if (!docSnap.exists()) {
-      // console.warn(`Attempted to update non-existent profile for user ${userId}. Consider creating first.`);
-      // Optionally, create it here if that's desired behavior for an "update"
-      // For now, we'll stick to strict update. ProfileForm should only call this if profile exists.
       return null;
     }
     await updateDoc(userDocRef, data);
-    const updatedProfile = await getUserProfile(userId); // Fetch the updated profile
+    const updatedProfile = await getUserProfile(userId); 
     return updatedProfile;
   } catch (error) {
     console.error(`Error updating user profile for ${userId}:`, error);
@@ -88,7 +76,6 @@ export async function createUserProfile(profileData: UserProfile): Promise<UserP
   try {
     const userDocRef = doc(db, 'users', profileData.id);
     
-    // Ensure all required fields have defaults if not provided
     const completeProfileData: UserProfile = {
       ...profileData,
       name: profileData.name || 'New User',
@@ -102,7 +89,6 @@ export async function createUserProfile(profileData: UserProfile): Promise<UserP
     return completeProfileData;
   } catch (error) {
     console.error(`Error creating user profile for ${profileData.id}:`, error);
-    // Re-throw or return a specific error structure
     throw error; 
   }
 }

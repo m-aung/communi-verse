@@ -11,7 +11,7 @@ import {
   signOut as firebaseSignOut 
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase/clientApp';
-import type { ChatUser, UserProfile } from '@/lib/types'; // Added UserProfile
+import type { ChatUser, UserProfile } from '@/lib/types'; 
 import { createUserProfile, getUserProfile as fetchUserServiceProfile } from '@/lib/services/userService';
 import { useRouter } from 'next/navigation';
 
@@ -36,21 +36,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
       if (fbUser) {
-        setLoading(true); // Start loading when fbUser is detected, before profile fetch
+        // setLoading(true) here makes authLoading reflect entire profile fetch too.
+        // For faster UI responsiveness, set loading(false) earlier:
         const initialDisplayName = fbUser.displayName || fbUser.email?.split('@')[0] || 'User';
-        // Set a basic user object immediately for responsiveness
-        setUser({
+        setUser({ // Set basic user object immediately
           id: fbUser.uid,
           name: initialDisplayName,
           avatarUrl: fbUser.photoURL || `https://placehold.co/40x40.png?text=${initialDisplayName.substring(0,1).toUpperCase()}`
         });
+        setLoading(false); // Firebase auth state resolved, set loading to false. Profile fetch happens next.
 
         try {
           let appProfile = await fetchUserServiceProfile(fbUser.uid);
           if (!appProfile) {
-            let nameForNewProfile = 'New User';
+            let nameForNewProfile = 'New User'; // Default if no displayName
             if (fbUser.displayName && fbUser.displayName.trim() !== '') {
               nameForNewProfile = fbUser.displayName.trim();
+            } else if (fbUser.email) {
+              nameForNewProfile = fbUser.email.split('@')[0]; // Fallback to email prefix if no displayName
             }
             
             const newProfileData: UserProfile = { 
@@ -64,7 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             appProfile = await createUserProfile(newProfileData);
           }
           
-          if (appProfile) {
+          if (appProfile) { // If profile fetched or created, update user context
             setUser({
               id: appProfile.id,
               name: appProfile.name,
@@ -74,9 +77,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (profileError) {
           console.error("Error fetching/creating app profile in useAuth:", profileError);
           // User context still has basic info from Firebase.
-        } finally {
-          setLoading(false); // Stop loading after profile operations complete or fail
         }
+        // setLoading(false) was moved up
       } else {
         setUser(null);
         setLoading(false); 
@@ -87,24 +89,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, pass: string) => {
-    setLoading(true); 
+    // setLoading(true); // onAuthStateChanged will handle this
     await signInWithEmailAndPassword(auth, email, pass);
-    // onAuthStateChanged will handle setting user and loading states.
-    // Router push can happen after auth state is confirmed by onAuthStateChanged.
-    // For now, keep it here for immediate redirect expectation.
     router.push('/');
   };
 
   const signup = async (email: string, pass: string, name: string) => {
-    setLoading(true); 
+    // setLoading(true); // onAuthStateChanged will handle this
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     const fbUser = userCredential.user;
     if (fbUser) {
-      // The onAuthStateChanged listener will also try to create a profile.
-      // To avoid race conditions or double-creation, we can rely on onAuthStateChanged,
-      // or ensure createUserProfile is idempotent or handles existing profiles gracefully.
-      // Our Firestore createUserProfile uses setDoc, which is fine.
-      // Let's ensure the name from signup form is used here.
       const profileData: UserProfile = {
         id: fbUser.uid,
         name: name, 
@@ -114,24 +108,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         bio: '',
       };
       await createUserProfile(profileData);
-      // Update the local user state immediately after signup too for better UX
-      setUser({
+      setUser({ // Update local user state immediately
         id: profileData.id,
         name: profileData.name,
         avatarUrl: profileData.avatarUrl,
       });
     }
-    // onAuthStateChanged will also set loading to false after profile ops.
     router.push('/');
   };
 
   const logout = async () => {
-    // setLoading(true); // Setting loading to true here might be too early if signOut is fast.
-                        // onAuthStateChanged will handle setting user to null and loading to false.
     await firebaseSignOut(auth);
     router.push('/login');
-    // setUser(null); // Handled by onAuthStateChanged
-    // setLoading(false); // Handled by onAuthStateChanged
   };
 
   return (
