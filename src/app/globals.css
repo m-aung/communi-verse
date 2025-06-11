@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,90 +9,96 @@ body {
 
 @layer base {
   :root {
-    --background: 210 17% 93%; /* Light Gray #E9ECEF */
-    --foreground: 215 25% 27%; /* Dark Gray for text */
+    /* Light Theme: Vibrant & Clean */
+    --background: 0 0% 98%; /* Very Light Gray / Almost White #FAFAFA */
+    --foreground: 220 10% 15%; /* Dark Cool Gray #21262B */
 
     --card: 0 0% 100%; /* White */
-    --card-foreground: 215 25% 27%;
+    --card-foreground: 220 10% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 27%;
+    --popover-foreground: 220 10% 15%;
 
-    --primary: 270 69% 59%; /* Vivid Purple #9D4EDD */
+    --primary: 260 85% 60%; /* Vibrant Purple #7F4CFF */
     --primary-foreground: 0 0% 100%; /* White */
 
-    --secondary: 210 15% 88%; /* Lighter gray for secondary elements */
-    --secondary-foreground: 215 25% 27%;
+    --secondary: 210 15% 92%; /* Lighter gray for secondary elements #EAEBF0 */
+    --secondary-foreground: 220 10% 25%;
 
-    --muted: 210 15% 75%;
-    --muted-foreground: 210 10% 45%; /* For placeholder text on muted background */
+    --muted: 210 15% 85%; /* #D2D6DB */
+    --muted-foreground: 210 10% 40%; /* For placeholder text on muted background #5C6672 */
 
-    --accent: 325 47% 78%; /* Reddish-Purple #E0AED0 */
-    --accent-foreground: 215 20% 15%; /* Very dark, almost black, for high contrast on accent */
+    --accent: 330 100% 60%; /* Vivid Pink #FF33A8 */
+    --accent-foreground: 0 0% 100%; /* White on pink */
     
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 75% 55%; /* #D94A4A */
     --destructive-foreground: 0 0% 98%;
 
-    --border: 210 10% 85%;
-    --input: 210 10% 90%;
-    --ring: 270 69% 59%; /* Primary color for focus rings */
+    --border: 210 10% 88%; /* #DDE1E5 */
+    --input: 210 10% 92%; /* #E5E8EB */
+    --ring: 260 85% 65%; /* Primary color for focus rings #9166FF */
 
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --chart-1: 260 85% 60%; /* primary */
+    --chart-2: 330 100% 60%; /* accent */
+    --chart-3: 190 80% 55%; /* Bright Teal */
+    --chart-4: 45 100% 55%; /* Bright Yellow/Orange */
+    --chart-5: 210 80% 60%; /* Bright Blue */
     --radius: 0.5rem;
 
-    /* Adjusted Sidebar variables based on new theme */
-    --sidebar-background: 210 15% 90%; 
-    --sidebar-foreground: 215 25% 27%;
-    --sidebar-primary: 270 69% 59%;
+    --sidebar-background: 210 15% 95%;  /* Light theme sidebar */
+    --sidebar-foreground: 220 10% 15%;
+    --sidebar-primary: 260 85% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 325 47% 78%;
-    --sidebar-accent-foreground: 215 20% 15%;
-    --sidebar-border: 210 10% 80%;
-    --sidebar-ring: 270 69% 59%;
+    --sidebar-accent: 330 100% 60%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 210 10% 88%;
+    --sidebar-ring: 260 85% 65%;
   }
 
   .dark {
-    --background: 210 10% 15%; /* Dark Gray */
-    --foreground: 210 15% 90%; /* Light Gray text */
+    /* Dark Theme: Neon Pulse */
+    --background: 224 30% 8%; /* Very Dark Blue/Gray #0F1217 */
+    --foreground: 210 30% 90%; /* Light Cool Gray #DBE1E8 */
 
-    --card: 210 10% 20%;
-    --card-foreground: 210 15% 90%;
+    --card: 222 30% 12%; /* Darker Card Background #161A23 */
+    --card-foreground: 210 30% 90%;
 
-    --popover: 210 10% 20%;
-    --popover-foreground: 210 15% 90%;
+    --popover: 222 30% 12%;
+    --popover-foreground: 210 30% 90%;
 
-    --primary: 270 69% 59%; 
-    --primary-foreground: 0 0% 100%;
+    --primary: 260 100% 70%; /* Electric Purple #9A77FF */
+    --primary-foreground: 210 30% 95%; /* Brighter white for contrast on electric purple */
 
-    --secondary: 210 10% 25%;
-    --secondary-foreground: 210 15% 90%;
+    --secondary: 220 25% 18%; /* Darker gray for secondary elements #232833 */
+    --secondary-foreground: 210 30% 80%; /* #BCC6D2 */
 
-    --muted: 210 10% 30%;
-    --muted-foreground: 210 15% 70%;
+    --muted: 220 20% 25%; /* #333947 */
+    --muted-foreground: 210 25% 65%; /* For placeholder text #8B9AAE */
 
-    --accent: 325 47% 68%; 
-    --accent-foreground: 0 0% 100%;
+    --accent: 330 100% 65%; /* Neon Pink #FF4DD2 */
+    --accent-foreground: 210 30% 95%; 
 
-    --destructive: 0 70% 50%;
+    --destructive: 0 80% 60%; /* #FF4D4D */
     --destructive-foreground: 0 0% 98%;
 
-    --border: 210 10% 30%;
-    --input: 210 10% 25%;
-    --ring: 270 69% 69%;
+    --border: 220 20% 20%; /* #2A303B */
+    --input: 220 20% 15%; /* #1D222B */
+    --ring: 260 100% 75%; /* Brighter primary for focus rings #AD8FFF */
 
-    /* Adjusted Sidebar variables for dark mode */
-    --sidebar-background: 210 10% 20%;
-    --sidebar-foreground: 210 15% 90%;
-    --sidebar-primary: 270 69% 59%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 325 47% 68%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 210 10% 25%;
-    --sidebar-ring: 270 69% 69%;
+    --chart-1: 260 100% 70%; /* primary */
+    --chart-2: 330 100% 65%; /* accent */
+    --chart-3: 170 90% 55%; /* Neon Teal */
+    --chart-4: 50 100% 60%; /* Neon Yellow */
+    --chart-5: 200 90% 65%; /* Neon Cyan */
+
+    --sidebar-background: 222 30% 10%; /* Dark theme sidebar */
+    --sidebar-foreground: 210 30% 90%;
+    --sidebar-primary: 260 100% 70%;
+    --sidebar-primary-foreground: 210 30% 95%;
+    --sidebar-accent: 330 100% 65%;
+    --sidebar-accent-foreground: 210 30% 95%;
+    --sidebar-border: 220 20% 18%;
+    --sidebar-ring: 260 100% 75%;
   }
 }
 
@@ -103,3 +110,4 @@ body {
     @apply bg-background text-foreground;
   }
 }
+    
