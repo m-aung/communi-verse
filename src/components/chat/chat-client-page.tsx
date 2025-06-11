@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import type { ChatMessage, ChatUser, Room } from '@/lib/types';
+import type { ChatMessage, ChatUser, Room, UserProfile } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,19 +11,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Send, Bell, Gift, Users, Loader2, UserPlus, LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { 
-  addUserToRoom, 
+import {
+  addUserToRoom,
   removeUserFromRoom,
 } from '@/lib/services/roomService';
-import { getUserProfile } from '@/lib/services/userService'; 
+import { getUserProfile } from '@/lib/services/userService';
 import { getChatMessages, addChatMessage } from '@/lib/services/chatService';
 import { logGiftSent, logUserFollowed, logUserLeftRoom } from '@/lib/services/telemetryService';
 import { useRouter } from 'next/navigation';
-import { doc, onSnapshot, type Unsubscribe } from 'firebase/firestore'; 
-import { db } from '@/lib/firebase/clientApp'; 
+import { doc, onSnapshot, type Unsubscribe } from 'firebase/firestore';
+import { db } from '@/lib/firebase/clientApp';
 
 interface ChatClientPageProps {
-  room: Room; 
+  room: Room;
 }
 
 export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
@@ -32,7 +32,8 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [usersInRoom, setUsersInRoom] = useState<ChatUser[]>([]);
-  const [isLoading, setIsLoading] = useState(true); 
+  const [isLoading, setIsLoading] = useState(true); // For initial page load
+  const [isRefreshingParticipants, setIsRefreshingParticipants] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const router = useRouter();
@@ -46,12 +47,12 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     if (!authUser && !authLoading) {
       toast({ title: "Not Authenticated", description: "Please login to join the chat.", variant: "destructive" });
       router.push('/login');
-      setIsLoading(false); 
+      setIsLoading(false);
       return;
     }
 
     if (authUser && room.id) {
-      setIsLoading(true); 
+      setIsLoading(true); // Start loading for initial setup
 
       addUserToRoom(room.id, authUser.id)
         .catch(error => {
@@ -61,48 +62,55 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
         .finally(() => {
           const roomDocRef = doc(db, 'rooms', room.id);
           unsubscribeParticipantsRef.current = onSnapshot(roomDocRef, async (docSnap) => {
+            setIsRefreshingParticipants(true);
             if (docSnap.exists()) {
               const roomData = docSnap.data();
               const participantIds: string[] = roomData.participantIds || [];
-              
+
               setRoom(prevRoom => ({ ...prevRoom, name: roomData.name, description: roomData.description, capacity: roomData.capacity, image: roomData.image, userCount: participantIds.length }));
 
               if (participantIds.length === 0) {
                 setUsersInRoom([]);
-                setIsLoading(false); // No participants to fetch
               } else {
-                const participantsPromises = participantIds.map(async (userId) => {
-                  const profile = await getUserProfile(userId); 
-                  if (profile) {
-                    return {
-                      id: profile.id,
-                      name: profile.name,
-                      avatarUrl: profile.avatarUrl,
-                    };
-                  }
-                  return null; 
-                });
-                const resolvedParticipants = (await Promise.all(participantsPromises)).filter(
-                  (p): p is ChatUser => p !== null
-                );
-                setUsersInRoom(resolvedParticipants);
-                setIsLoading(false); 
+                try {
+                  const participantsPromises = participantIds.map(async (userId) => {
+                    const profile = await getUserProfile(userId);
+                    if (profile) {
+                      return {
+                        id: profile.id,
+                        name: profile.name,
+                        avatarUrl: profile.avatarUrl,
+                      };
+                    }
+                    return null;
+                  });
+                  const resolvedParticipants = (await Promise.all(participantsPromises)).filter(
+                    (p): p is ChatUser => p !== null
+                  );
+                  setUsersInRoom(resolvedParticipants);
+                } catch (profileError) {
+                  console.error("Error fetching participant profiles:", profileError);
+                  toast({ title: "Profile Error", description: "Could not load all participant details.", variant: "destructive" });
+                  // Potentially set usersInRoom to a partial list or an empty list depending on desired error handling
+                }
               }
             } else {
               console.warn(`Room ${room.id} not found while listening for participants.`);
               setUsersInRoom([]);
               setRoom(prevRoom => ({ ...prevRoom, userCount: 0 }));
-              setIsLoading(false);
               toast({ title: "Room Error", description: "The chat room may no longer exist.", variant: "destructive" });
-              router.push('/'); 
+              router.push('/');
             }
+            setIsRefreshingParticipants(false);
+            setIsLoading(false); // Initial load complete after first snapshot processing
           }, (error) => {
             console.error(`Error listening to room participants for room ${room.id}:`, error);
             toast({ title: "Real-time Error", description: "Could not connect to real-time participant updates.", variant: "destructive" });
+            setIsRefreshingParticipants(false);
             setIsLoading(false);
           });
         });
-      
+
       getChatMessages(room.id)
         .then(fetchedMessages => {
           setMessages(fetchedMessages);
@@ -112,9 +120,9 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
           toast({ title: "Error", description: "Could not load messages.", variant: "destructive" });
         });
     }
-    
+
     const currentRoomId = room.id;
-    let currentAuthUserId: string | null = authUser ? authUser.id : null;
+    const currentAuthUserId: string | null = authUser ? authUser.id : null;
 
     return () => {
       if (unsubscribeParticipantsRef.current) {
@@ -126,7 +134,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
         });
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room.id, authUser, authLoading]);
 
 
@@ -180,7 +188,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
   const handleLeaveRoom = async () => {
     if (!authUser) return;
     try {
-      await removeUserFromRoom(room.id, authUser.id); 
+      await removeUserFromRoom(room.id, authUser.id);
       logUserLeftRoom(authUser.id, room.id);
       toast({
         title: 'Left Room',
@@ -193,7 +201,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     }
   };
 
-  if (authLoading || (!authUser && !authLoading) || isLoading ) {
+  if (isLoading) { // This isLoading gates the entire page until first participant snapshot
     return (
       <div className="flex justify-center items-center h-[calc(100vh-180px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -201,8 +209,8 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
       </div>
     );
   }
-  
-  if (!authUser) { 
+
+  if (!authUser) {
       return <p className="text-center py-10">Redirecting to login...</p>;
   }
 
@@ -212,14 +220,24 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
       <Card className="flex flex-col max-h-[40vh] lg:max-h-full lg:w-1/4 shadow-md">
         <CardHeader>
           <CardTitle className="flex items-center text-lg">
-            <Users className="mr-2 h-5 w-5" /> Participants ({room.userCount})
+            <Users className="mr-2 h-5 w-5" /> Participants ({isRefreshingParticipants ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : room.userCount})
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col flex-1 pt-0 overflow-hidden">
           <ScrollArea className="flex-1 pr-3">
-            {usersInRoom.length === 0 && (
-                 <p className="text-sm text-muted-foreground text-center py-4">The room is empty.</p>
+            {isRefreshingParticipants && usersInRoom.length === 0 && authUser && (
+              <div key={authUser.id} className="flex items-center justify-between p-2 mb-2 rounded-md opacity-70">
+                <div className="flex items-center">
+                  <Avatar className="h-8 w-8 mr-2">
+                    <AvatarImage src={authUser.avatarUrl} alt={authUser.name} data-ai-hint="user avatar" />
+                    <AvatarFallback>{authUser.name.substring(0, 1).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-medium">{authUser.name} (You)</span>
+                </div>
+                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
             )}
+
             {usersInRoom.map((user) => (
               <div key={user.id} className="flex items-center justify-between p-2 mb-2 rounded-md hover:bg-muted">
                 <div className="flex items-center">
@@ -241,6 +259,9 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
                 )}
               </div>
             ))}
+            {!isRefreshingParticipants && usersInRoom.length === 0 && (
+                 <p className="text-sm text-muted-foreground text-center py-4">The room is empty.</p>
+            )}
           </ScrollArea>
           <div className="mt-4 space-y-2 shrink-0">
             {usersInRoom.length <= 1 && authUser && usersInRoom.find(u => u.id === authUser.id) && !usersInRoom.find(u => u.id !== authUser.id) && (
@@ -261,10 +282,10 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
         </CardHeader>
         <CardContent className="flex-1 flex flex-col p-0">
           <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-            {isLoading && messages.length === 0 && ( 
+            {isLoading && messages.length === 0 && (
                 <p className="text-center text-muted-foreground py-4">Loading messages...</p>
             )}
-            {!isLoading && messages.length === 0 && ( 
+            {!isLoading && messages.length === 0 && (
                 <p className="text-center text-muted-foreground py-4">No messages yet. Be the first to say something!</p>
             )}
             {messages.map((msg) => (
@@ -308,7 +329,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 className="flex-1"
-                disabled={authLoading || isLoading} 
+                disabled={authLoading || isLoading}
               />
               <Button type="submit" variant="default" disabled={authLoading || isLoading || newMessage.trim() === ''}>
                 <Send className="h-4 w-4" />
