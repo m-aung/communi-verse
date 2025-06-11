@@ -65,7 +65,8 @@ export function SiteHeader() {
           ) : (
             <Button variant="default" size="sm" asChild>
               <Link href="/login">
-                <LogInIcon className="mr-1 h-4 w-4" /> Login
+                <LogInIcon className="h-4 w-4" /> {/* Removed mr-1 */}
+                <span>Login</span> {/* Wrapped text in span */}
               </Link>
             </Button>
           )}
