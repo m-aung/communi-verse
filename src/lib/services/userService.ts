@@ -14,19 +14,13 @@ import type { UserProfile, ChatUser } from '@/lib/types';
 import { auth } from '@/lib/firebase/clientApp'; // To check auth state if needed, though primarily driven by hook
 
 // Mock database for user profiles, ID should now be Firebase UID
+// This array acts as our "database" for mock user profiles.
 let mockUserProfiles: UserProfile[] = [
-  // Example: { id: 'firebase-uid-1', name: 'Alice', avatarUrl: '...', isOnline: true, email: 'alice@example.com', bio: '...' },
+  { id: 'user-alice-mock', name: 'Alice Wonderland', avatarUrl: 'https://placehold.co/40x40.png?text=AW', isOnline: true, email: 'alice@example.com', bio: 'Loves exploring rabbit holes.' },
+  { id: 'user-bob-mock', name: 'Bob The Builder', avatarUrl: 'https://placehold.co/40x40.png?text=BB', isOnline: false, email: 'bob@example.com', bio: 'Can he fix it? Yes, he can!' },
+  { id: 'user-charlie-mock', name: 'Charlie Brown', avatarUrl: 'https://placehold.co/40x40.png?text=CB', isOnline: true, email: 'charlie@example.com', bio: 'Good grief.' },
+  { id: 'user-diana-mock', name: 'Diana Prince', avatarUrl: 'https://placehold.co/40x40.png?text=DP', isOnline: false, email: 'diana@example.com', bio: 'Fighting for those who cannot fight for themselves.' }
 ];
-
-// Initialize some default users if the list is empty (for dev/mocking)
-if (mockUserProfiles.length === 0) {
-    mockUserProfiles.push(
-        { id: 'user-alice-mock', name: 'Alice Wonderland', avatarUrl: 'https://placehold.co/40x40.png?text=AW', isOnline: true, email: 'alice@example.com', bio: 'Loves exploring rabbit holes.' },
-        { id: 'user-bob-mock', name: 'Bob The Builder', avatarUrl: 'https://placehold.co/40x40.png?text=BB', isOnline: false, email: 'bob@example.com', bio: 'Can he fix it? Yes, he can!' },
-        { id: 'user-charlie-mock', name: 'Charlie Brown', avatarUrl: 'https://placehold.co/40x40.png?text=CB', isOnline: true, email: 'charlie@example.com', bio: 'Good grief.' },
-        { id: 'user-diana-mock', name: 'Diana Prince', avatarUrl: 'https://placehold.co/40x40.png?text=DP', isOnline: false, email: 'diana@example.com', bio: 'Fighting for those who cannot fight for themselves.' }
-    );
-}
 
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
@@ -106,3 +100,4 @@ export async function createUserProfile(profileData: UserProfile): Promise<UserP
   mockUserProfiles.push(newUserProfile);
   return { ...newUserProfile };
 }
+
