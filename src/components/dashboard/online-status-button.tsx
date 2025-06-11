@@ -14,66 +14,70 @@ import { useRouter } from 'next/navigation';
 export function OnlineStatusButton() {
   const { user: authUser, loading: authLoading } = useAuth();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // For local loading state (fetching profile, updating status)
+  const [isLoading, setIsLoading] = useState(true); // Local loading for fetching this component's specific data
   const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
-    if (authLoading) { // Wait for Firebase auth to resolve
+    if (authLoading) {
+      // If auth is globally loading, this component is also in a loading state.
+      // We don't need to fetch profile yet.
       setIsLoading(true);
-      return;
-    }
-    if (!authUser) { // If not authenticated, no profile to manage here
-      setIsLoading(false);
-      setUserProfile(null);
-      // Optionally, redirect or show a message if this component shouldn't be visible
-      // router.push('/login'); 
       return;
     }
 
+    // Auth is resolved (authLoading is false)
+    if (!authUser) {
+      // No authenticated user, so no profile to fetch or manage here.
+      setIsLoading(false);
+      setUserProfile(null);
+      return;
+    }
+
+    // Authenticated user is present, and global auth loading is false.
+    // Fetch the specific UserProfile for this component.
     async function fetchCurrentUserProfile() {
-      setIsLoading(true);
+      setIsLoading(true); // Start local loading for this specific fetch
       try {
-        // authUser.id is the Firebase UID
         const profile = await getUserProfile(authUser.id);
-        setUserProfile(profile); // This can be null if no extended profile exists yet
-                                // The toggle function should handle profile creation/update gracefully
+        setUserProfile(profile);
       } catch (error) {
         console.error("Failed to fetch current user profile for status:", error);
-        // Don't toast here, as it might be too noisy if profile doesn't exist yet
+        // Optionally, toast an error message to the user
+        // toast({ title: "Error", description: "Could not load profile details.", variant: "destructive" });
       } finally {
-        setIsLoading(false);
+        setIsLoading(false); // Finish local loading
       }
     }
     fetchCurrentUserProfile();
-  }, [authUser, authLoading, toast]);
+  }, [authUser, authLoading]); // Dependencies: effect runs if authUser or authLoading changes.
 
   const toggleOnlineStatus = async () => {
     if (!authUser) {
       toast({ title: "Not Authenticated", description: "Please login.", variant: "destructive" });
       return;
     }
-    setIsLoading(true);
+    setIsLoading(true); // Use local isLoading for the toggle action itself
     try {
-      // If userProfile doesn't exist from the fetch, we use authUser to ensure we have an ID and base details
-      const currentIsOnline = userProfile ? userProfile.isOnline : false; // Assume offline if no profile
+      const currentIsOnline = userProfile ? userProfile.isOnline : false;
       const newStatus = !currentIsOnline;
 
-      // Ensure a profile exists or create one when toggling status
       let profileToUpdate = userProfile;
       if (!profileToUpdate) {
          profileToUpdate = {
             id: authUser.id,
-            name: authUser.name,
-            email: authUser.email || '', // email might not be on ChatUser from useAuth initially
+            name: authUser.name, // Name from authUser might be basic initially
+            email: '', // userService should ideally get this from FirebaseUser if needed
             avatarUrl: authUser.avatarUrl,
-            isOnline: newStatus, // Set directly
+            isOnline: newStatus, 
             bio: '',
          };
       } else {
         profileToUpdate = { ...profileToUpdate, isOnline: newStatus };
       }
       
+      // Pass only the part to update, or the full profile if creating.
+      // userService's updateUserProfile should handle if it needs to create.
       const updatedProfile = await updateUserProfile(authUser.id, { isOnline: newStatus });
       
       if (updatedProfile) {
@@ -84,9 +88,7 @@ export function OnlineStatusButton() {
           duration: 3000,
         });
       } else {
-         // This could happen if the profile didn't exist and updateUserProfile can't create.
-         // Our mock updateUserProfile should handle creation via createUserProfile logic if an ID is passed.
-        throw new Error("Failed to update profile status. Profile might not exist.");
+        throw new Error("Failed to update profile status. Profile might not exist or update failed.");
       }
     } catch (error) {
       console.error("Failed to toggle online status:", error);
@@ -96,7 +98,8 @@ export function OnlineStatusButton() {
     }
   };
   
-  if (isLoading || authLoading) {
+  // Display loading UI if either global auth is loading or this component is fetching its profile
+  if (authLoading || isLoading) {
     return (
       <div className="flex flex-col items-center space-y-2">
         <Button variant="outline" className="w-48 shadow-md" disabled>
@@ -107,7 +110,8 @@ export function OnlineStatusButton() {
     );
   }
   
-  if (!authUser && !authLoading) { // If done loading and no authUser
+  // If auth is resolved, and no user is authenticated
+  if (!authUser && !authLoading) {
     return (
         <div className="flex flex-col items-center space-y-2">
             <p className="text-muted-foreground">Please log in to manage your status.</p>
@@ -116,8 +120,8 @@ export function OnlineStatusButton() {
     );
   }
 
-
-  const isOnline = userProfile?.isOnline || false; // Default to false if no profile or isOnline is undefined
+  // At this point, authUser is available, authLoading is false, and local isLoading is false.
+  const isOnline = userProfile?.isOnline || false;
 
   return (
     <div className="flex flex-col items-center space-y-2">
@@ -125,10 +129,11 @@ export function OnlineStatusButton() {
         onClick={toggleOnlineStatus}
         variant={isOnline ? 'destructive' : 'default'}
         className="w-48 shadow-md"
-        disabled={isLoading} // Local loading for the toggle action itself
+        // Disable button only if an action (like toggling) is in progress locally (covered by setIsLoading(true) in toggleOnlineStatus)
+        // The outer (authLoading || isLoading) check handles initial loading.
       >
-        {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : 
-          isOnline ? (
+        {/* The Loader2 here is more for the toggle action, but the outer one handles initial load */}
+        {isOnline ? (
           <>
             <PowerOff className="mr-2 h-5 w-5" /> Go Offline
           </>

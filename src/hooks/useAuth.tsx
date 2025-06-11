@@ -29,70 +29,75 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<ChatUser | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // This is authLoading
   const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
       if (fbUser) {
-        // Try to get our app-specific user profile
-        let appProfile = await fetchUserServiceProfile(fbUser.uid);
-        if (!appProfile) {
-          // If no profile exists, create a basic one (e.g., after social sign-in or if DB was cleared)
-          // For email/password signup, this profile is created during the signup process.
-          // We use a default name or the Firebase display name if available.
-          const newName = fbUser.displayName || fbUser.email?.split('@')[0] || 'New User';
-          appProfile = await createUserProfile({ 
-            id: fbUser.uid, 
-            name: newName, 
-            email: fbUser.email || '',
-            avatarUrl: fbUser.photoURL || `https://placehold.co/40x40.png?text=${newName.substring(0,1).toUpperCase()}`,
-            isOnline: false, // Default to offline
-            bio: '' 
-          });
-        }
-        
-        if (appProfile) {
-          setUser({
-            id: appProfile.id,
-            name: appProfile.name,
-            avatarUrl: appProfile.avatarUrl,
-          });
-        } else {
-            // Fallback if profile creation also failed for some reason
-             setUser({
-                id: fbUser.uid,
-                name: fbUser.displayName || fbUser.email || 'User',
-                avatarUrl: fbUser.photoURL || `https://placehold.co/40x40.png?text=${(fbUser.displayName || fbUser.email || 'U').substring(0,1).toUpperCase()}`
-            });
-        }
+        // Set basic user information immediately from Firebase
+        setUser({
+          id: fbUser.uid,
+          name: fbUser.displayName || fbUser.email?.split('@')[0] || 'User',
+          avatarUrl: fbUser.photoURL || `https://placehold.co/40x40.png?text=${(fbUser.displayName || fbUser.email || 'U').substring(0,1).toUpperCase()}`
+        });
+        setLoading(false); // Firebase auth state is known, set loading to false.
 
+        // Asynchronously fetch/create the detailed app profile and update user context
+        try {
+          let appProfile = await fetchUserServiceProfile(fbUser.uid);
+          if (!appProfile) {
+            const newName = fbUser.displayName || fbUser.email?.split('@')[0] || 'New User';
+            appProfile = await createUserProfile({ 
+              id: fbUser.uid, 
+              name: newName, 
+              email: fbUser.email || '',
+              avatarUrl: fbUser.photoURL || `https://placehold.co/40x40.png?text=${newName.substring(0,1).toUpperCase()}`,
+              isOnline: false, 
+              bio: '' 
+            });
+          }
+          
+          if (appProfile) {
+            setUser({ // Update user context with more detailed profile
+              id: appProfile.id,
+              name: appProfile.name,
+              avatarUrl: appProfile.avatarUrl,
+            });
+          }
+        } catch (profileError) {
+          console.error("Error fetching/creating app profile:", profileError);
+          // The user context already has basic info from Firebase, so the app can proceed.
+        }
       } else {
         setUser(null);
+        setLoading(false); // Firebase auth state known (no user).
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, []); // Empty dependency array is correct for onAuthStateChanged
 
   const login = async (email: string, pass: string) => {
-    setLoading(true);
+    setLoading(true); // Indicate loading during login process
     await signInWithEmailAndPassword(auth, email, pass);
-    // Auth state change will be handled by onAuthStateChanged
-    // setLoading(false) will be called by onAuthStateChanged
+    // onAuthStateChanged will handle setting user and setLoading(false)
     router.push('/');
   };
 
   const signup = async (email: string, pass: string, name: string) => {
-    setLoading(true);
+    setLoading(true); // Indicate loading during signup process
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     const fbUser = userCredential.user;
     if (fbUser) {
       // Create a corresponding profile in our userService
-      await createUserProfile({
-        id: fbUser.uid, // Use Firebase UID as our profile ID
+      // This is now also done in onAuthStateChanged, but can be kept here for immediate profile creation if desired.
+      // However, to avoid races, it's often better to let onAuthStateChanged handle profile sync.
+      // For this change, we'll rely on onAuthStateChanged to create the profile if it doesn't exist.
+      // We could pre-create it here, but the async nature of onAuthStateChanged should pick it up.
+       await createUserProfile({
+        id: fbUser.uid,
         name: name,
         email: fbUser.email || '',
         avatarUrl: `https://placehold.co/40x40.png?text=${name.substring(0,1).toUpperCase()}`,
@@ -100,14 +105,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         bio: '',
       });
     }
-    // Auth state change will be handled by onAuthStateChanged
+    // onAuthStateChanged will handle setting user and setLoading(false)
     router.push('/');
   };
 
   const logout = async () => {
-    setLoading(true);
+    setLoading(true); // Indicate loading during logout process
     await firebaseSignOut(auth);
-    // Auth state change will be handled by onAuthStateChanged
+    // onAuthStateChanged will handle setting user to null and setLoading(false)
     router.push('/login');
   };
 
