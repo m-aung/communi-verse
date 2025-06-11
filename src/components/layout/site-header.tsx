@@ -7,7 +7,7 @@ import { Coins, Home, LogOut, ShoppingCart, UserCircle2, LogInIcon, Menu } from 
 import { useAuth } from '@/hooks/useAuth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useState } from 'react';
 
 export function SiteHeader() {
@@ -81,7 +81,7 @@ export function SiteHeader() {
 
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50 shadow-sm">
-      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between flex-wrap">
         <Link href="/" className="text-2xl font-bold font-headline text-primary">
           CommuniVerse
         </Link>
@@ -114,7 +114,7 @@ export function SiteHeader() {
                 </Link>
               </Button>
               <Button variant="ghost" size="sm" onClick={handleLogout}>
-                <LogOut className="mr-1 h-4 w-4" /> Logout
+                <LogOut className="mr-1 h-4 w-4" /> <span>Logout</span>
               </Button>
             </>
           ) : (
@@ -137,6 +137,9 @@ export function SiteHeader() {
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-[280px] sm:w-[320px] p-4">
+              <SheetHeader>
+                <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+              </SheetHeader>
               <div className="flex flex-col space-y-2">
                 <Link href="/" className="text-xl font-bold font-headline text-primary mb-4" onClick={() => setIsMobileMenuOpen(false)}>
                   CommuniVerse
