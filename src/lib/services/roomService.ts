@@ -9,8 +9,9 @@
  * - getRoomParticipants - Fetches participants of a room.
  * - addUserToRoom - Adds a user to a room.
  * - removeUserFromRoom - Removes a user from a room.
+ * - listenToRoomParticipants - Sets up a real-time listener for room participants.
  */
-import type { Room, ChatUser, UserProfile } from '@/lib/types';
+import type { Room, ChatUser } from '@/lib/types';
 import { db } from '@/lib/firebase/clientApp';
 import { 
   doc, 
@@ -21,13 +22,18 @@ import {
   getDocs, 
   arrayUnion, 
   arrayRemove,
-  deleteDoc // Added for potential future use, though not used in this refactor directly
+  onSnapshot,
+  type Unsubscribe, // Added for listener cleanup and return type
+  type DocumentSnapshot // For transformRoomDoc if ever used with v9 DocumentSnapshot
 } from 'firebase/firestore';
 import { getUserProfile } from './userService';
 
 // Helper to transform Firestore doc data to Room type and add userCount
-const transformRoomDoc = (docSnap: firebase.firestore.DocumentSnapshot | { id: string; data: () => any }): Room & { userCount: number } | null => {
-  if (!docSnap.exists && typeof docSnap.exists === 'function' && !docSnap.exists()) return null;
+// Note: This helper uses a generic signature that might need adjustment
+// if used broadly, ensuring it correctly handles v9 DocumentSnapshot.
+// For now, it's not directly used by the listener logic in a way that causes issues.
+const transformRoomDoc = (docSnap: DocumentSnapshot | { id: string; data: () => any; exists: () => boolean }): Room & { userCount: number } | null => {
+  if (!docSnap.exists()) return null;
   const data = docSnap.data();
   if (!data) return null;
   
@@ -157,19 +163,16 @@ export async function addUserToRoom(roomId: string, userId: string): Promise<boo
     const participantIds: string[] = roomData.participantIds || [];
 
     if (participantIds.length >= roomData.capacity) {
-      console.warn(`Room ${roomId} is full. Cannot add user ${userId}.`);
       return false; // Room is full
     }
 
     if (participantIds.includes(userId)) {
-      // console.log(`User ${userId} already in room ${roomId}.`);
       return true; // User already in room
     }
 
     await updateDoc(roomDocRef, {
       participantIds: arrayUnion(userId),
     });
-    // console.log(`User ${userId} added to room ${roomId}.`);
     return true;
   } catch (error) {
     console.error(`Error adding user ${userId} to room ${roomId}:`, error);
@@ -180,16 +183,50 @@ export async function addUserToRoom(roomId: string, userId: string): Promise<boo
 export async function removeUserFromRoom(roomId: string, userId: string): Promise<boolean> {
   try {
     const roomDocRef = doc(db, 'rooms', roomId);
-    // It's okay if the room doesn't exist or user isn't in it, just try to remove.
     await updateDoc(roomDocRef, {
       participantIds: arrayRemove(userId),
     });
-    // console.log(`User ${userId} removed from room ${roomId}.`);
     return true;
   } catch (error) {
-    console.error(`Error removing user ${userId} from room ${roomId}:`, error);
-    // If room doesn't exist, updateDoc might fail. Depending on desired behavior,
-    // you might want to check if doc exists first. For now, we assume it's okay to fail silently.
     return false;
   }
+}
+
+export async function listenToRoomParticipants(
+  roomId: string,
+  callback: (participants: ChatUser[], userCount: number) => void
+): Promise<Unsubscribe> { // Return Promise<Unsubscribe>
+  const roomDocRef = doc(db, 'rooms', roomId);
+
+  const unsubscribeFunction = onSnapshot(roomDocRef, async (docSnap) => {
+    if (docSnap.exists()) {
+      const roomData = docSnap.data();
+      const participantIds: string[] = roomData.participantIds || [];
+      
+      const participantsPromises = participantIds.map(async (userId) => {
+        const profile = await getUserProfile(userId); // from userService
+        if (profile) {
+          return {
+            id: profile.id,
+            name: profile.name,
+            avatarUrl: profile.avatarUrl,
+          };
+        }
+        return null; 
+      });
+      const resolvedParticipants = (await Promise.all(participantsPromises)).filter(
+        (p): p is ChatUser => p !== null
+      );
+      
+      callback(resolvedParticipants, participantIds.length);
+    } else {
+      console.warn(`Room ${roomId} not found while listening for participants.`);
+      callback([], 0);
+    }
+  }, (error) => {
+    console.error(`Error listening to room participants for room ${roomId}:`, error);
+    callback([], 0); 
+  });
+
+  return unsubscribeFunction; // Return the unsubscribe function itself
 }

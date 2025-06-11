@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import type { ChatMessage, ChatUser, Room, UserProfile } from '@/lib/types';
+import { useState, useEffect, useRef } from 'react';
+import type { ChatMessage, ChatUser, Room } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,99 +10,102 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Send, Bell, Gift, Users, Loader2, UserPlus, LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth'; // Import useAuth
-import { getRoomParticipants, addUserToRoom, removeUserFromRoom } from '@/lib/services/roomService';
+import { useAuth } from '@/hooks/useAuth';
+import { 
+  addUserToRoom, 
+  removeUserFromRoom,
+  listenToRoomParticipants
+} from '@/lib/services/roomService';
 import { getChatMessages, addChatMessage } from '@/lib/services/chatService';
-import { logGiftSent, logUserFollowed, logUserLeftRoom } from '@/lib/services/telemetryService'; // Import telemetry functions
+import { logGiftSent, logUserFollowed, logUserLeftRoom } from '@/lib/services/telemetryService';
 import { useRouter } from 'next/navigation';
+import type { Unsubscribe } from 'firebase/firestore'; // Import Unsubscribe
 
 interface ChatClientPageProps {
   room: Room; // Initial room data from server
 }
 
 export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
-  const { user: authUser, loading: authLoading } = useAuth(); // Get current user from AuthContext
+  const { user: authUser, loading: authLoading } = useAuth();
   const [room, setRoom] = useState<Room>(initialRoom);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [usersInRoom, setUsersInRoom] = useState<ChatUser[]>([]);
-  // currentUser is now authUser from useAuth
-  const [isLoading, setIsLoading] = useState(true); // For chat data loading
+  const [isLoading, setIsLoading] = useState(true); 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const router = useRouter();
-
-  const fetchChatData = useCallback(async () => {
-    if (!authUser) return; // Wait for authUser to be available
-    try {
-      setIsLoading(true);
-      const [fetchedParticipants, fetchedMessages] = await Promise.all([
-        getRoomParticipants(room.id),
-        getChatMessages(room.id)
-      ]);
-      
-      const isCurrentUserInList = fetchedParticipants.some(p => p.id === authUser.id);
-      if (!isCurrentUserInList) {
-        // addUserToRoom expects a UserProfile, but we have ChatUser from auth.
-        // For mock, we can pass the ChatUser and roomService can adapt, or we fetch full profile.
-        // Let's assume addUserToRoom can handle ChatUser or just needs ID. Our mock uses ID.
-        await addUserToRoom(room.id, authUser.id); 
-        const updatedParticipants = await getRoomParticipants(room.id);
-        setUsersInRoom(updatedParticipants);
-        setRoom(prevRoom => ({ ...prevRoom, userCount: updatedParticipants.length }));
-      } else {
-        setUsersInRoom(fetchedParticipants);
-        setRoom(prevRoom => ({ ...prevRoom, userCount: fetchedParticipants.length }));
-      }
-      setMessages(fetchedMessages);
-
-    } catch (error) {
-      console.error("Error fetching chat data:", error);
-      toast({ title: "Error", description: "Could not load chat data.", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [room.id, toast, authUser]);
-
+  const unsubscribeRef = useRef<Unsubscribe | null>(null); // Ref for unsubscribe function
 
   useEffect(() => {
-    if (authLoading) { // Wait for Firebase auth to resolve
+    if (authLoading) {
       setIsLoading(true);
       return;
     }
-    if (!authUser && !authLoading) { // If auth loaded and no user, redirect
+    if (!authUser && !authLoading) {
       toast({ title: "Not Authenticated", description: "Please login to join the chat.", variant: "destructive" });
       router.push('/login');
       return;
     }
-    // If authUser is available
-    if (authUser) {
-      fetchChatData();
+
+    if (authUser && room.id) {
+      setIsLoading(true); 
+
+      addUserToRoom(room.id, authUser.id)
+        .then(added => {
+          // Handle if user could not be added (e.g. room full), though listener will be source of truth
+        })
+        .catch(error => {
+          console.error("Error ensuring user is in room:", error);
+          toast({ title: "Entry Error", description: "Could not ensure your presence in the room.", variant: "destructive" });
+        });
+      
+      const setupParticipantListener = async () => {
+        try {
+          unsubscribeRef.current = await listenToRoomParticipants(
+            room.id,
+            (updatedParticipants, updatedUserCount) => {
+              setUsersInRoom(updatedParticipants);
+              setRoom(prevRoom => ({ ...prevRoom, userCount: updatedUserCount }));
+              setIsLoading(false); 
+            }
+          );
+        } catch (error) {
+            console.error("Error setting up participant listener:", error);
+            toast({ title: "Real-time Error", description: "Could not connect to real-time participant updates.", variant: "destructive" });
+            setIsLoading(false);
+        }
+      };
+      setupParticipantListener();
+
+      getChatMessages(room.id)
+        .then(fetchedMessages => {
+          setMessages(fetchedMessages);
+        })
+        .catch(error => {
+          console.error("Error fetching chat messages:", error);
+          toast({ title: "Error", description: "Could not load messages.", variant: "destructive" });
+        });
     }
     
-    // Cleanup: remove user from room on unmount or room change
-    const currentRoomId = room.id; // Capture room.id at the time of effect setup
+    const currentRoomId = room.id;
     let currentAuthUserId: string | null = null;
     if (authUser) {
       currentAuthUserId = authUser.id;
     }
-    
+
     return () => {
-      if (currentAuthUserId) {
-        // console.log(`ChatClientPage unmounting/changing room. Removing user ${currentAuthUserId} from ${currentRoomId}`);
-        removeUserFromRoom(currentRoomId, currentAuthUserId).then(() => {
-            // console.log(`User ${currentAuthUserId} marked as left room ${currentRoomId} after cleanup.`);
-            // Log leaving action here as well if user closes tab/navigates away while in room
-            // This might be slightly redundant if handleLeaveRoom is also called, but covers more cases.
-            // Be mindful of potential double-logging if not handled carefully.
-            // For now, primary logging is in handleLeaveRoom for explicit leave.
-        }).catch(err => {
-            // console.error(`Error removing user ${currentAuthUserId} from room ${currentRoomId} during cleanup:`, err);
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+      if (currentAuthUserId && currentRoomId) {
+        removeUserFromRoom(currentRoomId, currentAuthUserId).catch(err => {
+          // console.error(`Error removing user ${currentAuthUserId} from room ${currentRoomId} during cleanup:`, err);
         });
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room.id, authUser, authLoading, router]); // fetchChatData is not included to avoid re-triggering on its own change
+  }, [room.id, authUser, authLoading]);
 
 
   useEffect(() => {
@@ -115,7 +118,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
   const handleSendMessage = async () => {
     if (newMessage.trim() === '' || !authUser) return;
     try {
-      const sentMessage = await addChatMessage(room.id, authUser, newMessage); // Pass ChatUser directly
+      const sentMessage = await addChatMessage(room.id, authUser, newMessage);
       setMessages(prevMessages => [...prevMessages, sentMessage]);
       setNewMessage('');
     } catch (error) {
@@ -124,7 +127,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     }
   };
 
-  const handleRingAction = () => { // Renamed from handleRingFriends
+  const handleRingAction = () => {
     toast({
       title: 'Followers Ringed!',
       description: `Your followers have been notified to join ${room.name}. (This is a demo)`,
@@ -155,8 +158,8 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
   const handleLeaveRoom = async () => {
     if (!authUser) return;
     try {
-      await removeUserFromRoom(room.id, authUser.id);
-      logUserLeftRoom(authUser.id, room.id); // Log leaving action
+      await removeUserFromRoom(room.id, authUser.id); 
+      logUserLeftRoom(authUser.id, room.id);
       toast({
         title: 'Left Room',
         description: `You have left ${room.name}.`,
@@ -168,7 +171,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     }
   };
 
-  if (isLoading || authLoading || !authUser && !authLoading ) { // Show loader if chat data or auth is loading, or if no user after auth check
+  if (authLoading || (!authUser && !authLoading) || isLoading ) {
     return (
       <div className="flex justify-center items-center h-[calc(100vh-180px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -177,8 +180,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     );
   }
   
-  // This check should ideally be covered by useEffect redirect, but as a safeguard for render
-  if (!authUser) {
+  if (!authUser) { 
       return <p className="text-center py-10">Redirecting to login...</p>;
   }
 
@@ -219,7 +221,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
             ))}
           </ScrollArea>
           <div className="mt-4 space-y-2 shrink-0">
-            {usersInRoom.length <= 1 && authUser && !usersInRoom.find(u => u.id !== authUser.id) && ( // Show if only current user is in room
+            {usersInRoom.length <= 1 && authUser && usersInRoom.find(u => u.id === authUser.id) && !usersInRoom.find(u => u.id !== authUser.id) && (
               <Button onClick={handleRingAction} variant="outline" className="w-full">
                 <Bell className="mr-2 h-4 w-4" /> Ring Followers
               </Button>
@@ -237,7 +239,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
         </CardHeader>
         <CardContent className="flex-1 flex flex-col p-0">
           <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-            {messages.length === 0 && !isLoading && (
+            {messages.length === 0 && !isLoading && ( 
                 <p className="text-center text-muted-foreground py-4">No messages yet. Be the first to say something!</p>
             )}
             {messages.map((msg) => (
@@ -281,9 +283,9 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 className="flex-1"
-                disabled={isLoading || authLoading}
+                disabled={authLoading || isLoading} 
               />
-              <Button type="submit" variant="default" disabled={isLoading || authLoading || newMessage.trim() === ''}>
+              <Button type="submit" variant="default" disabled={authLoading || isLoading || newMessage.trim() === ''}>
                 <Send className="h-4 w-4" />
                 <span className="sr-only">Send</span>
               </Button>
