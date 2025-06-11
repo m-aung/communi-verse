@@ -21,8 +21,10 @@ let mockUserProfiles: UserProfile[] = [
 // Initialize some default users if the list is empty (for dev/mocking)
 if (mockUserProfiles.length === 0) {
     mockUserProfiles.push(
-        { id: 'user-alice-mock', name: 'Alice (Mock)', avatarUrl: 'https://placehold.co/40x40.png?text=A', isOnline: true, email: 'alice@example.com', bio: 'Loves coding.' },
-        { id: 'user-bob-mock', name: 'Bob (Mock)', avatarUrl: 'https://placehold.co/40x40.png?text=B', isOnline: false, email: 'bob@example.com', bio: 'Enjoys hiking.' }
+        { id: 'user-alice-mock', name: 'Alice Wonderland', avatarUrl: 'https://placehold.co/40x40.png?text=AW', isOnline: true, email: 'alice@example.com', bio: 'Loves exploring rabbit holes.' },
+        { id: 'user-bob-mock', name: 'Bob The Builder', avatarUrl: 'https://placehold.co/40x40.png?text=BB', isOnline: false, email: 'bob@example.com', bio: 'Can he fix it? Yes, he can!' },
+        { id: 'user-charlie-mock', name: 'Charlie Brown', avatarUrl: 'https://placehold.co/40x40.png?text=CB', isOnline: true, email: 'charlie@example.com', bio: 'Good grief.' },
+        { id: 'user-diana-mock', name: 'Diana Prince', avatarUrl: 'https://placehold.co/40x40.png?text=DP', isOnline: false, email: 'diana@example.com', bio: 'Fighting for those who cannot fight for themselves.' }
     );
 }
 
@@ -43,7 +45,6 @@ export async function getCurrentUser(): Promise<ChatUser | null> {
   // This function could be used by server components that need user info if they can't use the hook,
   // or to get the *extended* UserProfile based on Firebase auth.
   // For simplicity, we'll assume this might be called server-side or where `useAuth` isn't available.
-  // In a real app with server-side auth checks, this would be different.
 
   // The following is a conceptual placeholder for how it might work.
   // It doesn't have access to the client-side Firebase auth state directly here.
@@ -71,23 +72,33 @@ export async function updateUserProfile(userId: string, data: Partial<Omit<UserP
     mockUserProfiles[profileIndex] = { ...mockUserProfiles[profileIndex], ...data };
     return { ...mockUserProfiles[profileIndex] };
   }
+  // If profile doesn't exist, let's create it as part of the update, common for first-time updates.
+  const { name, email, avatarUrl, isOnline, bio } = data;
+  if (name && email) { // Basic requirement for a new profile
+    const newProfile: UserProfile = {
+      id: userId,
+      name: name,
+      email: email,
+      avatarUrl: avatarUrl || `https://placehold.co/40x40.png?text=${name.substring(0,1).toUpperCase()}`,
+      isOnline: isOnline || false,
+      bio: bio || '',
+    };
+    return await createUserProfile(newProfile);
+  }
   return null;
 }
 
 export async function createUserProfile(profileData: UserProfile): Promise<UserProfile> {
   // profileData.id is expected to be Firebase UID
-  const existing = mockUserProfiles.find(p => p.id === profileData.id);
-  if (existing) {
-    // If user already exists (e.g. logged in before, profile created, then logged out and signed up again with same email)
-    // We can either throw an error, or update the existing profile. Let's update.
-    const profileIndex = mockUserProfiles.findIndex(p => p.id === profileData.id);
-    mockUserProfiles[profileIndex] = { ...mockUserProfiles[profileIndex], ...profileData };
-    return { ...mockUserProfiles[profileIndex] };
+  const existingIndex = mockUserProfiles.findIndex(p => p.id === profileData.id);
+  if (existingIndex !== -1) {
+    // If user already exists, update the existing profile.
+    mockUserProfiles[existingIndex] = { ...mockUserProfiles[existingIndex], ...profileData };
+    return { ...mockUserProfiles[existingIndex] };
   }
   
   const newUserProfile: UserProfile = { 
     ...profileData, 
-    // Ensure defaults if not provided
     isOnline: profileData.isOnline !== undefined ? profileData.isOnline : false,
     bio: profileData.bio || '',
     avatarUrl: profileData.avatarUrl || `https://placehold.co/40x40.png?text=${profileData.name.substring(0,1).toUpperCase()}`,
