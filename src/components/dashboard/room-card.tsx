@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,7 +31,8 @@ export function RoomCard({ room }: RoomCardProps) {
       <CardContent className="flex-grow">
         <div className="flex items-center text-sm text-muted-foreground">
           <Users className="mr-2 h-4 w-4" />
-          <span>{room.userCount} / {room.capacity} users</span>
+          {/* Assuming room.userCount is available; if not, it should be room.participantIds.length */}
+          <span>{room.userCount !== undefined ? room.userCount : (room.participantIds?.length || 0)} / {room.capacity} users</span>
         </div>
       </CardContent>
       <CardFooter>
