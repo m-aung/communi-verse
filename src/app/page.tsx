@@ -1,12 +1,12 @@
 
 import { OnlineStatusButton } from '@/components/dashboard/online-status-button';
 import { RoomCard } from '@/components/dashboard/room-card';
-import { getAllRooms } from '@/lib/services/roomService'; // Updated import
+import { getAllRooms } from '@/lib/services/roomService'; 
 import type { Room } from '@/lib/types';
 
 export default async function DashboardPage() {
-  // Fetch rooms using the service
-  const rooms: Room[] = await getAllRooms();
+  // Let TypeScript infer the type from getAllRooms, or use the more specific type
+  const rooms = await getAllRooms(); // Type will be (Room & { userCount: number })[]
 
   return (
     <div className="space-y-12">
@@ -20,7 +20,8 @@ export default async function DashboardPage() {
         {rooms.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {rooms.map((room) => (
-              <RoomCard key={room.id} room={room} />
+              // Ensure room and room.id are valid before rendering RoomCard
+              room && room.id ? <RoomCard key={room.id} room={room} /> : null
             ))}
           </div>
         ) : (
