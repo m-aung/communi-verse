@@ -3,10 +3,6 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: 'PT Sans', sans-serif;
-}
-
 @layer base {
   :root {
     /* Light Theme: Vibrant Blue & Energetic Orange */
@@ -100,14 +96,13 @@ body {
     --sidebar-border: 220 20% 20%;
     --sidebar-ring: 217 90% 70%;
   }
-}
 
-@layer base {
+  body {
+    font-family: 'PT Sans', sans-serif;
+    @apply bg-background text-foreground;
+  }
+
   * {
     @apply border-border;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
 }
-    

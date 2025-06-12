@@ -10,7 +10,7 @@ import type { Room } from '@/lib/types';
 import { useState } from 'react';
 import { getRoomVibe } from '@/ai/flows/room-vibe-flow';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth'; // To get current user for coin check (simulated)
+import { useAuth } from '@/hooks/useAuth'; 
 import { useRouter } from 'next/navigation';
 import {
   AlertDialog,
@@ -25,7 +25,7 @@ import {
 
 
 interface RoomCardProps {
-  room: Room;
+  room: Room & { userCount: number }; // Corrected type
 }
 
 export function RoomCard({ room }: RoomCardProps) {
@@ -58,6 +58,8 @@ export function RoomCard({ room }: RoomCardProps) {
         setVibeDescription(result.vibe);
       } catch (error) {
         console.error("Error fetching room vibe:", error);
+        // Optionally set a fallback or error message for vibeDescription
+        // setVibeDescription("Could not fetch vibe...");
       } finally {
         setIsVibeLoading(false);
       }
@@ -93,6 +95,11 @@ export function RoomCard({ room }: RoomCardProps) {
   const handleConfirmPremiumEntry = () => {
     // TODO: Implement actual coin check and deduction with userService
     // For now, simulate successful entry
+    if (!authUser) { // Should not happen if button is enabled correctly, but good check
+        toast({ title: "Error", description: "User not authenticated.", variant: "destructive"});
+        setShowPremiumEntryDialog(false);
+        return;
+    }
     const hasEnoughCoins = true; // Simulate user having enough coins
 
     if (hasEnoughCoins) {
@@ -118,7 +125,6 @@ export function RoomCard({ room }: RoomCardProps) {
 
 
   if (!isValidRoomId && typeof console !== 'undefined') { 
-    // This console.warn will appear in the browser console as RoomCard is a client component
     console.warn(`RoomCard: Invalid or missing room.id for room object: ${JSON.stringify(room)}. Disabling link and actions.`);
   }
 
@@ -158,12 +164,11 @@ export function RoomCard({ room }: RoomCardProps) {
               <Sparkles className="mr-1 h-3 w-3 text-accent" /> {vibeDescription}
             </p>
           )}
-
         </CardHeader>
         <CardContent className="flex-grow">
           <div className="flex items-center text-sm text-muted-foreground">
             <Users className="mr-2 h-4 w-4" />
-            <span>{(room as any).userCount !== undefined ? (room as any).userCount : (room.participantIds?.length || 0)} / {room.capacity || 15} users</span>
+            <span>{room.userCount} / {room.capacity || 15} users</span>
           </div>
           {room.admissionFee && room.admissionFee > 0 && (
             <div className="flex items-center text-sm text-yellow-600 dark:text-yellow-400 mt-2 font-semibold">
@@ -175,31 +180,23 @@ export function RoomCard({ room }: RoomCardProps) {
         <CardFooter>
           <Button 
             onClick={handleEnterRoomClick}
-            // Only use asChild (for Link) if it's NOT a premium room (which needs its own onClick for the dialog)
-            // AND if the room ID is valid.
             asChild={!(room.admissionFee && room.admissionFee > 0) && isValidRoomId} 
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" 
-            disabled={!isValidRoomId} // Button is disabled if room ID is invalid
+            disabled={!isValidRoomId}
           >
             { (room.admissionFee && room.admissionFee > 0) ? (
-              // If premium, Button itself handles click for dialog (no Link wrapper here)
               <>
                 <Diamond className="mr-2 h-4 w-4" /> Enter Premium Room
               </>
             ) : (
-              // If free AND room ID is valid, Button acts as child for Link.
-              // If room ID is invalid, asChild is false, Button is disabled, Link is not rendered.
               isValidRoomId ? (
                 <Link 
                   href={roomLinkHref} 
-                  aria-disabled={!isValidRoomId} // This is somewhat redundant due to button's disabled state
+                  aria-disabled={!isValidRoomId}
                 >
                   <LogIn className="mr-2 h-4 w-4" /> Enter Room
                 </Link>
               ) : (
-                 // Fallback for Button content if not asChild (e.g. invalid room ID)
-                 // This case might not be strictly necessary due to `disabled={!isValidRoomId}` on Button
-                 // but provides explicit text for a disabled non-premium button.
                 <>
                   <LogIn className="mr-2 h-4 w-4" /> Enter Room
                 </>
