@@ -4,7 +4,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { AppShell } from '@/components/layout/app-shell';
 import { cn } from '@/lib/utils';
-import { AuthProvider } from '@/hooks/useAuth'; // Import AuthProvider
+import { AuthProvider } from '@/hooks/useAuth';
 
 export const metadata: Metadata = {
   title: 'CommuniVerse',
@@ -24,7 +24,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
       </head>
       <body className={cn('font-body antialiased min-h-screen flex flex-col')}>
-        <AuthProvider> {/* Wrap with AuthProvider */}
+        <AuthProvider>
           <AppShell>{children}</AppShell>
           <Toaster />
         </AuthProvider>

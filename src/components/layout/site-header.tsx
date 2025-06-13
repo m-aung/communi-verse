@@ -85,7 +85,7 @@ export function SiteHeader() {
       <div className="container mx-auto px-4 py-3 flex items-center justify-between flex-wrap">
         <Link href="/" className="flex items-center gap-2 text-2xl font-bold font-headline text-primary">
           <Image
-            src="/logo.png" // New logo path
+            src="/logo.png" 
             alt="CommuniVerse App Logo"
             width={32} // Adjusted size for header
             height={32} // Adjusted size for header

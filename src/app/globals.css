@@ -5,96 +5,96 @@
 
 @layer base {
   :root {
-    /* Light Theme: Vibrant Blue & Energetic Orange */
-    --background: 0 0% 98%;                     /* #FAFAFA */
-    --foreground: 220 10% 15%;                   /* #21262B */
+    /* CommuniVerse Theme: Vivid Purple, Desaturated Purple-Gray, Reddish-Purple Accent */
+    --background: 270 15% 94%;         /* #F0EDF2 - Light Desaturated Purple-Gray */
+    --foreground: 270 10% 25%;         /* Darker Desaturated Purple-Gray for text */
 
-    --card: 0 0% 100%;                           /* White */
-    --card-foreground: 220 10% 15%;
+    --card: 0 0% 100%;                  /* White for cards to maintain contrast */
+    --card-foreground: 270 10% 25%;    /* Same as main foreground */
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 10% 15%;
+    --popover-foreground: 270 10% 25%;
 
-    --primary: 217 90% 55%;                     /* Vibrant Blue #3B82F6 */
-    --primary-foreground: 0 0% 100%;             /* White */
+    --primary: 273 70% 61%;            /* #9D4EDD - Vivid Purple */
+    --primary-foreground: 0 0% 100%;    /* White */
 
-    --secondary: 217 90% 95%;                   /* Lightest Blue */
-    --secondary-foreground: 217 90% 30%;        /* Darker Blue for text on secondary */
+    --secondary: 273 70% 90%;          /* Lighter Vivid Purple */
+    --secondary-foreground: 273 70% 40%; /* Darker text on light secondary */
 
-    --muted: 220 20% 94%;                       /* Very Light Gray */
-    --muted-foreground: 210 10% 45%;             /* Medium Gray */
+    --muted: 270 15% 90%;              /* Very Light Desaturated Purple-Gray */
+    --muted-foreground: 270 10% 45%;    /* Medium Desaturated Purple-Gray */
 
-    --accent: 24 95% 53%;                       /* Vibrant Orange #F97316 */
-    --accent-foreground: 20 100% 10%;            /* Very Dark Brown/Almost Black for text on Orange */
+    --accent: 323 42% 78%;             /* #E0AED0 - Reddish-Purple */
+    --accent-foreground: 323 40% 20%;   /* Dark text on accent for contrast */
     
-    --destructive: 0 75% 55%;                   /* Bright Red #D94A4A */
-    --destructive-foreground: 0 0% 98%;          /* Light text on destructive */
+    --destructive: 0 75% 55%;          /* Standard Red for destructive actions */
+    --destructive-foreground: 0 0% 98%; /* Light text on destructive */
 
-    --border: 217 80% 90%;                      /* Light Blueish Gray */
-    --input: 217 80% 94%;                       /* Very Light Blueish Gray */
-    --ring: 217 90% 60%;                        /* Primary color for focus rings (slightly lighter primary) */
+    --border: 270 20% 88%;             /* Light purple-gray border */
+    --input: 270 20% 92%;              /* Very light purple-gray input background */
+    --ring: 273 70% 65%;               /* Primary color for focus rings (slightly lighter primary) */
 
-    --chart-1: 217 90% 55%; /* primary blue */
-    --chart-2: 24 95% 53%;  /* accent orange */
-    --chart-3: 160 70% 45%; /* A contrasting teal/green */
-    --chart-4: 290 70% 55%; /* A contrasting purple */
-    --chart-5: 45 100% 50%; /* A bright yellow */
+    --chart-1: 273 70% 61%; /* primary */
+    --chart-2: 323 42% 78%;  /* accent */
+    --chart-3: 190 70% 50%; /* A contrasting teal/cyan */
+    --chart-4: 30 90% 60%;  /* A contrasting orange/yellow */
+    --chart-5: 120 60% 55%; /* A contrasting green */
     --radius: 0.5rem;
 
-    --sidebar-background: 220 20% 96%;
-    --sidebar-foreground: 220 10% 20%;
-    --sidebar-primary: 217 90% 55%;
+    --sidebar-background: 270 15% 92%;
+    --sidebar-foreground: 270 10% 20%;
+    --sidebar-primary: 273 70% 61%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 24 95% 53%;
-    --sidebar-accent-foreground: 20 100% 10%;
-    --sidebar-border: 220 20% 88%;
-    --sidebar-ring: 217 90% 60%;
+    --sidebar-accent: 323 42% 78%;
+    --sidebar-accent-foreground: 323 40% 20%;
+    --sidebar-border: 270 20% 85%;
+    --sidebar-ring: 273 70% 65%;
   }
 
   .dark {
-    /* Dark Theme: Tech Blue & Lively Orange */
-    --background: 220 25% 10%;                  /* Dark Blueish Gray #131720 */
-    --foreground: 210 30% 90%;                  /* Light Cool Gray #DBE1E8 */
+    /* CommuniVerse Dark Theme */
+    --background: 270 10% 12%;         /* #1E1C21 - Dark Desaturated Purple-Gray */
+    --foreground: 270 10% 85%;         /* Light Desaturated Purple-Gray for text */
 
-    --card: 220 25% 14%;                       /* Darker Card Background #1A1F2A */
-    --card-foreground: 210 30% 90%;
+    --card: 270 10% 16%;               /* Slightly lighter than background */
+    --card-foreground: 270 10% 85%;
 
-    --popover: 220 25% 14%;
-    --popover-foreground: 210 30% 90%;
+    --popover: 270 10% 16%;
+    --popover-foreground: 270 10% 85%;
 
-    --primary: 217 90% 65%;                     /* Brighter Blue for dark mode #60A5FA */
-    --primary-foreground: 220 20% 15%;           /* Dark text for contrast on brighter blue */
+    --primary: 273 70% 68%;            /* Brighter Vivid Purple for dark mode */
+    --primary-foreground: 270 10% 15%;   /* Dark text for contrast on brighter primary */
 
-    --secondary: 217 70% 25%;                   /* Darker Blue */
-    --secondary-foreground: 217 80% 75%;        /* Lighter Blue for text on secondary */
+    --secondary: 273 60% 25%;          /* Darker Muted Purple */
+    --secondary-foreground: 273 60% 75%; /* Lighter text on dark secondary */
 
-    --muted: 220 20% 28%;                       /* Medium-Dark Gray #383E4C */
-    --muted-foreground: 210 25% 70%;             /* Lighter Gray #9EADC2 */
+    --muted: 270 10% 22%;              /* Medium-Dark Desaturated Purple-Gray */
+    --muted-foreground: 270 10% 65%;    /* Lighter Gray for muted text */
 
-    --accent: 24 95% 63%;                       /* Brighter Orange for dark mode #FC9F54 */
-    --accent-foreground: 20 100% 10%;            /* Very Dark Brown/Almost Black for text on Orange */
+    --accent: 323 50% 82%;             /* Brighter Reddish-Purple for dark mode */
+    --accent-foreground: 323 40% 15%;   /* Very dark text for contrast on accent */
 
-    --destructive: 0 80% 60%;                   /* Bright Red #FF4D4D */
+    --destructive: 0 80% 60%;          /* Standard Red */
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 20% 25%;                      /* Dark Gray #333947 */
-    --input: 220 20% 18%;                       /* Very Dark Gray #232833 */
-    --ring: 217 90% 70%;                        /* Brighter primary for focus rings #78B3FB */
+    --border: 270 10% 25%;             /* Dark purple-gray border */
+    --input: 270 10% 20%;              /* Very dark purple-gray input */
+    --ring: 273 70% 72%;               /* Brighter primary for focus rings */
 
-    --chart-1: 217 90% 65%; /* primary blue (dark theme) */
-    --chart-2: 24 95% 63%;  /* accent orange (dark theme) */
-    --chart-3: 160 80% 55%; /* A contrasting teal/green (dark theme) */
-    --chart-4: 290 80% 65%; /* A contrasting purple (dark theme) */
-    --chart-5: 45 100% 60%; /* A bright yellow (dark theme) */
+    --chart-1: 273 70% 68%; /* primary (dark theme) */
+    --chart-2: 323 50% 82%;  /* accent (dark theme) */
+    --chart-3: 190 70% 60%; /* A contrasting teal/cyan (dark theme) */
+    --chart-4: 30 90% 70%;  /* A contrasting orange/yellow (dark theme) */
+    --chart-5: 120 60% 65%; /* A contrasting green (dark theme) */
 
-    --sidebar-background: 220 25% 12%;
-    --sidebar-foreground: 210 30% 85%;
-    --sidebar-primary: 217 90% 65%;
-    --sidebar-primary-foreground: 220 20% 15%;
-    --sidebar-accent: 24 95% 63%;
-    --sidebar-accent-foreground: 20 100% 10%;
-    --sidebar-border: 220 20% 20%;
-    --sidebar-ring: 217 90% 70%;
+    --sidebar-background: 270 10% 14%;
+    --sidebar-foreground: 270 10% 80%;
+    --sidebar-primary: 273 70% 68%;
+    --sidebar-primary-foreground: 270 10% 15%;
+    --sidebar-accent: 323 50% 82%;
+    --sidebar-accent-foreground: 323 40% 15%;
+    --sidebar-border: 270 10% 22%;
+    --sidebar-ring: 273 70% 72%;
   }
 
   body {
