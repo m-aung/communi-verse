@@ -39,17 +39,17 @@ export function OnlineStatusButton() {
       const newStatus = !currentIsOnline;
       
       // Only update in Firestore. Context will update via listener in AuthProvider.
-      const updatedProfileInDb = await updateUserProfile(firebaseUser.id, { isOnline: newStatus });
+      const updateSucceeded = await updateUserProfile(firebaseUser.id, { isOnline: newStatus });
       
-      if (updatedProfileInDb) {
-        // No need to call updateContextUserProfile, listener in AuthProvider handles it.
+      if (updateSucceeded) {
+        // The AuthProvider's listener will update the context and UI.
         toast({
           title: `Status Updated`,
           description: `You are now ${newStatus ? 'Online' : 'Offline'}.`,
           duration: 3000,
         });
       } else {
-        console.error("OnlineStatusButton: updateUserProfile in Firestore returned null or failed.");
+        // No need for the specific console.error here anymore, toast is sufficient
         toast({
           title: "Update Failed",
           description: "Could not update your online status in the database. Please try again.",
@@ -133,3 +133,4 @@ export function OnlineStatusButton() {
     </div>
   );
 }
+

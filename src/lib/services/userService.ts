@@ -49,23 +49,20 @@ export async function getAllUsers(): Promise<UserProfile[]> {
   }
 }
 
-export async function updateUserProfile(userId: string, data: Partial<Omit<UserProfile, 'id'>>): Promise<UserProfile | null> {
+export async function updateUserProfile(userId: string, data: Partial<Omit<UserProfile, 'id'>>): Promise<boolean> {
   if (!userId) {
     console.error("updateUserProfile: userId is undefined or null");
-    return null;
+    return false;
   }
   try {
     const userDocRef = doc(db, 'users', userId);
-    const docSnap = await getDoc(userDocRef);
-    if (!docSnap.exists()) {
-      return null;
-    }
+    // No need to check if doc exists before update; updateDoc will create it if it doesn't (though setDoc with merge is better for that)
+    // or simply update if it does. For toggling isOnline, this is fine.
     await updateDoc(userDocRef, data);
-    const updatedProfile = await getUserProfile(userId); 
-    return updatedProfile;
+    return true; // Indicate success of the update operation
   } catch (error) {
     console.error(`Error updating user profile for ${userId}:`, error);
-    return null;
+    return false; // Indicate failure
   }
 }
 
@@ -92,3 +89,4 @@ export async function createUserProfile(profileData: UserProfile): Promise<UserP
     throw error; 
   }
 }
+
