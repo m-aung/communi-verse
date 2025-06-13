@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle 
 import { useState } from 'react';
 
 export function SiteHeader() {
-  const { user, loading, logout } = useAuth();
+  const { userProfile, loading, logout } = useAuth(); // Changed user to userProfile
   const { toast } = useToast();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -19,7 +19,7 @@ export function SiteHeader() {
     try {
       await logout();
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
-      setIsMobileMenuOpen(false); // Close mobile menu on logout
+      setIsMobileMenuOpen(false); 
     } catch (error: any) {
       toast({ title: 'Logout Failed', description: error.message, variant: 'destructive' });
     }
@@ -51,10 +51,10 @@ export function SiteHeader() {
           <Skeleton className="h-8 w-full" />
           <Skeleton className="h-8 w-full" />
         </div>
-      ) : user ? (
+      ) : userProfile ? ( // Check userProfile
         <>
           <div className="px-3 py-2 text-sm font-medium text-muted-foreground">
-            Hi, {user.name.split(' ')[0]}
+            Hi, {userProfile.name.split(' ')[0]}
           </div>
           <SheetClose asChild>
             <Button variant="ghost" size="sm" asChild className="w-full justify-start">
@@ -104,9 +104,9 @@ export function SiteHeader() {
               <Skeleton className="h-5 w-10" /> 
               <Skeleton className="h-8 w-8 rounded-full" />
             </div>
-          ) : user ? (
+          ) : userProfile ? ( // Check userProfile
             <>
-              <span className="text-sm text-muted-foreground hidden sm:inline">Hi, {user.name.split(' ')[0]}</span>
+              <span className="text-sm text-muted-foreground hidden sm:inline">Hi, {userProfile.name.split(' ')[0]}</span>
               <Button variant="ghost" size="icon" asChild>
                 <Link href="/profile">
                   <UserCircle2 className="h-5 w-5" />

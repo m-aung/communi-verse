@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import type { ChatMessage, ChatUser, Room } from '@/lib/types';
+import type { ChatMessage, ChatUser, Room, UserProfile } from '@/lib/types'; // UserProfile needed for authUser
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,7 @@ import {
   removeUserFromRoom,
 } from '@/lib/services/roomService';
 import { getUserProfile } from '@/lib/services/userService';
-import { addChatMessage } from '@/lib/services/chatService'; // getChatMessages removed
+import { addChatMessage } from '@/lib/services/chatService'; 
 import { logGiftSent, logUserFollowed, logUserLeftRoom } from '@/lib/services/telemetryService';
 import { useRouter } from 'next/navigation';
 import { doc, onSnapshot, collection, query, orderBy, type Timestamp, type Unsubscribe } from 'firebase/firestore';
@@ -27,12 +27,12 @@ interface ChatClientPageProps {
 }
 
 export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
-  const { user: authUser, loading: authLoading } = useAuth();
+  const { userProfile: authUserProfile, loading: authLoading, firebaseUser } = useAuth(); // Use userProfile
   const [room, setRoom] = useState<Room>(initialRoom);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [usersInRoom, setUsersInRoom] = useState<ChatUser[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPage, setIsLoadingPage] = useState(true); // Renamed from isLoading for clarity
   const [isRefreshingParticipants, setIsRefreshingParticipants] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -41,24 +41,25 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
   const unsubscribeParticipantsRef = useRef<Unsubscribe | null>(null);
   const unsubscribeMessagesRef = useRef<Unsubscribe | null>(null);
 
+  // Effect for handling auth state and setting up listeners
   useEffect(() => {
     if (authLoading) {
-      setIsLoading(true);
+      setIsLoadingPage(true);
       return;
     }
-    if (!authUser && !authLoading) {
+    if (!firebaseUser && !authLoading) { // Check firebaseUser for authentication
       toast({ title: "Not Authenticated", description: "Please login to join the chat.", variant: "destructive" });
       router.push('/login');
-      setIsLoading(false);
+      setIsLoadingPage(false);
       return;
     }
 
-    if (authUser && room.id) {
-      setIsLoading(true);
+    // firebaseUser exists, proceed
+    if (firebaseUser && room.id && authUserProfile) { // Ensure authUserProfile is also available
+      setIsLoadingPage(true); // Keep true until first participant snapshot
       setIsLoadingMessages(true);
 
-      // Ensure user is in room (Firestore participants list)
-      addUserToRoom(room.id, authUser.id)
+      addUserToRoom(room.id, firebaseUser.id)
         .catch(error => {
           console.error("Error ensuring user is in room:", error);
           toast({ title: "Entry Error", description: "Could not ensure your presence in the room.", variant: "destructive" });
@@ -79,8 +80,8 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
           } else {
             try {
               const participantsPromises = participantIds.map(async (userId) => {
-                const profile = await getUserProfile(userId);
-                return profile ? { id: profile.id, name: profile.name, avatarUrl: profile.avatarUrl } : null;
+                const profile = await getUserProfile(userId); // This is userService.getUserProfile
+                return profile ? { id: profile.id, name: profile.name, avatarUrl: profile.avatarUrl } as ChatUser : null;
               });
               const resolvedParticipants = (await Promise.all(participantsPromises)).filter(
                 (p): p is ChatUser => p !== null
@@ -88,7 +89,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
               setUsersInRoom(resolvedParticipants);
             } catch (profileError) {
               console.error("Error fetching participant profiles:", profileError);
-              toast({ title: "Profile Error", description: "Could not load all participant details.", variant: "destructive" });
+              // toast({ title: "Profile Error", description: "Could not load all participant details.", variant: "destructive" });
             }
           }
         } else {
@@ -99,12 +100,12 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
           router.push('/');
         }
         setIsRefreshingParticipants(false);
-        setIsLoading(false); // Main loading false after first participant snapshot
+        setIsLoadingPage(false); 
       }, (error) => {
         console.error(`Error listening to room participants for room ${room.id}:`, error);
         toast({ title: "Real-time Error", description: "Could not connect to real-time participant updates.", variant: "destructive" });
         setIsRefreshingParticipants(false);
-        setIsLoading(false);
+        setIsLoadingPage(false);
       });
 
       // Listener for Messages
@@ -113,10 +114,17 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
       unsubscribeMessagesRef.current = onSnapshot(qMessages, (querySnapshot) => {
         const fetchedMessages = querySnapshot.docs.map(docSnap => {
           const data = docSnap.data();
+          // Ensure sender structure matches ChatUser
+          const senderData = data.sender as any; // Cast to any for temp access
+          const sender: ChatUser = {
+            id: senderData?.id || 'unknown',
+            name: senderData?.name || 'Unknown User',
+            avatarUrl: senderData?.avatarUrl
+          };
           return {
             id: docSnap.id,
             roomId: room.id,
-            sender: data.sender as ChatUser,
+            sender: sender,
             text: data.text,
             timestamp: (data.timestamp as Timestamp)?.toDate() || new Date(),
           } as ChatMessage;
@@ -128,10 +136,16 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
         toast({ title: "Message Error", description: "Could not load real-time messages.", variant: "destructive" });
         setIsLoadingMessages(false);
       });
+    } else if (!authLoading && (!firebaseUser || !authUserProfile)) {
+      // Handles case where auth is loaded, but user is not authenticated or profile is missing
+      setIsLoadingPage(false);
+      if (!firebaseUser) router.push('/login');
+      else if (!authUserProfile) toast({ title: "Profile Error", description: "Your profile could not be loaded.", variant: "destructive" });
     }
 
+
     const currentRoomId = room.id;
-    const currentAuthUserId: string | null = authUser ? authUser.id : null;
+    const currentAuthUserId: string | null = firebaseUser ? firebaseUser.id : null;
 
     return () => {
       if (unsubscribeParticipantsRef.current) {
@@ -142,12 +156,12 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
       }
       if (currentAuthUserId && currentRoomId) {
         removeUserFromRoom(currentRoomId, currentAuthUserId).catch(err => {
-          // console.error(`Error removing user ${currentAuthUserId} from room ${currentRoomId} during cleanup:`, err);
+           console.warn(`Attempted to remove user ${currentAuthUserId} from room ${currentRoomId} during cleanup, might fail if room/user already gone:`, err.message);
         });
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room.id, authUser, authLoading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.id, firebaseUser, authLoading, authUserProfile]); // Added authUserProfile
 
 
   useEffect(() => {
@@ -158,10 +172,14 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (newMessage.trim() === '' || !authUser) return;
+    if (newMessage.trim() === '' || !firebaseUser || !authUserProfile) return; // Check authUserProfile
     try {
-      // Message is added to Firestore; onSnapshot listener will update the UI.
-      await addChatMessage(room.id, authUser, newMessage);
+      const senderForMessage: ChatUser = { // Construct ChatUser from UserProfile
+          id: authUserProfile.id,
+          name: authUserProfile.name,
+          avatarUrl: authUserProfile.avatarUrl
+      };
+      await addChatMessage(room.id, senderForMessage, newMessage);
       setNewMessage('');
     } catch (error) {
       console.error("Error sending message:", error);
@@ -178,30 +196,30 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
   };
 
   const handleGiftCoins = (user: ChatUser) => {
-    if (!authUser) return;
+    if (!firebaseUser) return; // Check firebaseUser
     toast({
       title: 'Coins Gifted!',
       description: `You gifted coins to ${user.name}. (This is a demo)`,
       duration: 3000,
     });
-    logGiftSent(authUser.id, user.id, room.id);
+    logGiftSent(firebaseUser.id, user.id, room.id);
   };
 
   const handleFollowUser = (user: ChatUser) => {
-    if (!authUser) return;
+    if (!firebaseUser) return; // Check firebaseUser
     toast({
       title: 'Followed User!',
       description: `You are now following ${user.name}. (This is a demo)`,
       duration: 3000,
     });
-    logUserFollowed(authUser.id, user.id, room.id);
+    logUserFollowed(firebaseUser.id, user.id, room.id);
   };
 
   const handleLeaveRoom = async () => {
-    if (!authUser) return;
+    if (!firebaseUser) return; // Check firebaseUser
     try {
-      await removeUserFromRoom(room.id, authUser.id);
-      logUserLeftRoom(authUser.id, room.id);
+      await removeUserFromRoom(room.id, firebaseUser.id);
+      logUserLeftRoom(firebaseUser.id, room.id);
       toast({
         title: 'Left Room',
         description: `You have left ${room.name}.`,
@@ -213,7 +231,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     }
   };
 
-  if (isLoading) {
+  if (isLoadingPage) {
     return (
       <div className="flex justify-center items-center h-[calc(100vh-180px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -222,8 +240,8 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     );
   }
 
-  if (!authUser) {
-      return <p className="text-center py-10">Redirecting to login...</p>;
+  if (!firebaseUser || !authUserProfile) { // Check both for complete auth state
+      return <p className="text-center py-10">Redirecting to login or profile setup...</p>;
   }
 
 
@@ -237,14 +255,14 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
         </CardHeader>
         <CardContent className="flex flex-col flex-1 pt-0 overflow-hidden">
           <ScrollArea className="flex-1 pr-3">
-            {isRefreshingParticipants && usersInRoom.length === 0 && authUser && (
-              <div key={authUser.id} className="flex items-center justify-between p-2 mb-2 rounded-md opacity-70">
+            {isRefreshingParticipants && usersInRoom.length === 0 && authUserProfile && (
+              <div key={authUserProfile.id} className="flex items-center justify-between p-2 mb-2 rounded-md opacity-70">
                 <div className="flex items-center">
                   <Avatar className="h-8 w-8 mr-2">
-                    <AvatarImage src={authUser.avatarUrl} alt={authUser.name} data-ai-hint="user avatar" />
-                    <AvatarFallback>{authUser.name.substring(0, 1).toUpperCase()}</AvatarFallback>
+                    <AvatarImage src={authUserProfile.avatarUrl} alt={authUserProfile.name} data-ai-hint="user avatar" />
+                    <AvatarFallback>{authUserProfile.name.substring(0, 1).toUpperCase()}</AvatarFallback>
                   </Avatar>
-                  <span className="text-sm font-medium">{authUser.name} (You)</span>
+                  <span className="text-sm font-medium">{authUserProfile.name} (You)</span>
                 </div>
                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
               </div>
@@ -257,9 +275,9 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
                     <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="user avatar" />
                     <AvatarFallback>{user.name.substring(0, 1).toUpperCase()}</AvatarFallback>
                   </Avatar>
-                  <span className="text-sm font-medium">{user.name} {user.id === authUser?.id ? "(You)" : ""}</span>
+                  <span className="text-sm font-medium">{user.name} {user.id === authUserProfile?.id ? "(You)" : ""}</span>
                 </div>
-                {user.id !== authUser?.id && (
+                {user.id !== authUserProfile?.id && (
                   <div className="flex items-center space-x-1">
                     <Button variant="ghost" size="sm" onClick={() => handleFollowUser(user)} title={`Follow ${user.name}`}>
                       <UserPlus className="h-4 w-4 text-blue-500" />
@@ -276,7 +294,8 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
             )}
           </ScrollArea>
           <div className="mt-4 space-y-2 shrink-0">
-            {usersInRoom.length <= 1 && authUser && usersInRoom.find(u => u.id === authUser.id) && !usersInRoom.find(u => u.id !== authUser.id) && (
+             {/* Ring followers logic: check if current user is the *only* one in the room. */}
+            {usersInRoom.length === 1 && authUserProfile && usersInRoom[0]?.id === authUserProfile.id && (
               <Button onClick={handleRingAction} variant="outline" className="w-full">
                 <Bell className="mr-2 h-4 w-4" /> Ring Followers
               </Button>
@@ -303,21 +322,21 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex mb-3 ${msg.sender.id === authUser?.id ? 'justify-end' : 'justify-start'}`}
+                className={`flex mb-3 ${msg.sender.id === authUserProfile?.id ? 'justify-end' : 'justify-start'}`}
               >
-                <div className={`flex items-end max-w-[70%] ${msg.sender.id === authUser?.id ? 'flex-row-reverse' : 'flex-row'}`}>
+                <div className={`flex items-end max-w-[70%] ${msg.sender.id === authUserProfile?.id ? 'flex-row-reverse' : 'flex-row'}`}>
                    <Avatar className="h-8 w-8 mx-2 order-1">
                     <AvatarImage src={msg.sender.avatarUrl} alt={msg.sender.name} data-ai-hint="user avatar" />
-                    <AvatarFallback>{msg.sender.name.substring(0,1).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback>{msg.sender.name ? msg.sender.name.substring(0,1).toUpperCase() : 'U'}</AvatarFallback>
                   </Avatar>
                   <div
                     className={`p-3 rounded-lg shadow ${
-                      msg.sender.id === authUser?.id
+                      msg.sender.id === authUserProfile?.id
                         ? 'bg-primary text-primary-foreground rounded-br-none'
                         : 'bg-muted text-foreground rounded-bl-none'
                     }`}
                   >
-                    <p className="text-sm font-medium mb-0.5">{msg.sender.name}</p>
+                    <p className="text-sm font-medium mb-0.5">{msg.sender.name || 'Unknown User'}</p>
                     <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
                     <p className="text-xs opacity-70 mt-1 text-right">
                       {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -341,9 +360,9 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 className="flex-1"
-                disabled={authLoading || isLoading || isLoadingMessages}
+                disabled={authLoading || isLoadingPage || isLoadingMessages}
               />
-              <Button type="submit" variant="default" disabled={authLoading || isLoading || isLoadingMessages || newMessage.trim() === ''}>
+              <Button type="submit" variant="default" disabled={authLoading || isLoadingPage || isLoadingMessages || newMessage.trim() === ''}>
                 <Send className="h-4 w-4" />
                 <span className="sr-only">Send</span>
               </Button>
@@ -354,5 +373,3 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
     </div>
   );
 }
-
-    

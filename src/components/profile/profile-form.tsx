@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth'; // Import useAuth
+import { useAuth } from '@/hooks/useAuth'; 
 import { getUserProfile, updateUserProfile, createUserProfile } from '@/lib/services/userService';
 import type { UserProfile } from '@/lib/types';
 import { Loader2, Save } from 'lucide-react';
@@ -27,124 +27,101 @@ const profileFormSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 export function ProfileForm() {
-  const { user: authUser, loading: authLoading, firebaseUser } = useAuth(); // Get user from useAuth
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // Local loading state for this component
+  const { userProfile: authUserProfile, loading: authLoading, firebaseUser } = useAuth(); // Use userProfile
+  // Removed local userProfile state, will rely on authUserProfile from context for display
+  // isLoading state now primarily reflects authLoading from context for initial setup.
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
-    defaultValues: {
+    defaultValues: { // Default values are for form structure
       name: '',
       bio: '',
       avatarUrl: '',
     },
   });
 
-  const watchedAvatarUrl = form.watch('avatarUrl');
-  const watchedName = form.watch('name');
-
+  // Effect to populate form when authUserProfile from context is available or changes
   useEffect(() => {
-    if (authLoading) { // If global auth state is loading
-      setIsLoading(true); // Component is also in a loading state
+    if (authLoading) { // If context is loading, wait.
       return;
     }
-    // If global auth state is resolved (authLoading is false)
-    // Component's primary loading dependency (auth) is resolved.
-    // We will set isLoading to false after attempting to fetch profile or redirecting.
 
-    if (!authUser || !firebaseUser) { // Now, check if user is actually authenticated
+    if (!firebaseUser) { // If not authenticated (no firebaseUser)
       toast({ title: "Not Authenticated", description: "Please login to view your profile.", variant: "destructive" });
       router.push('/login');
-      setIsLoading(false); // Stop loading as we are redirecting
-      return; // Exit effect if redirecting
+      return; 
     }
-
-    // If authenticated, proceed to fetch profile data
-    async function fetchProfile() {
-      setIsLoading(true); // Set loading true for the profile fetch operation
-      try {
-        const profile = await getUserProfile(authUser.id);
-        if (profile) {
-          setUserProfile(profile);
-          form.reset({
-            name: profile.name,
-            bio: profile.bio || '',
-            avatarUrl: profile.avatarUrl || '',
-          });
-        } else {
-          // Profile might not exist yet in Firestore, use Firebase details as a base
-          const baseName = authUser.name || (firebaseUser.email?.split('@')[0] || 'New User');
-          const baseAvatar = authUser.avatarUrl || firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${baseName.substring(0,1).toUpperCase()}`;
-          
-          // Set a temporary userProfile state for the form based on auth data
-          // This doesn't mean the profile exists in DB yet, but pre-fills the form.
-          setUserProfile({ 
-            id: authUser.id,
-            name: baseName,
-            email: firebaseUser.email || '',
-            avatarUrl: baseAvatar,
-            bio: '',
-            isOnline: false, 
-          });
-          form.reset({
-            name: baseName,
-            bio: '',
-            avatarUrl: baseAvatar,
-          });
-        }
-      } catch (error) {
-        console.error("Failed to fetch profile:", error);
-        toast({ title: "Error", description: "Could not load your profile.", variant: "destructive" });
-      } finally {
-        setIsLoading(false); // Profile fetch operation finished
-      }
+    
+    // If authenticated (firebaseUser exists) and context is not loading
+    if (authUserProfile) { // If profile from context exists
+      form.reset({
+        name: authUserProfile.name,
+        bio: authUserProfile.bio || '',
+        avatarUrl: authUserProfile.avatarUrl || '',
+      });
+    } else if (firebaseUser && !authLoading) { 
+      // Fallback: firebaseUser exists, auth not loading, but no full UserProfile from context yet
+      // (e.g. listener still initializing or new user before profile fully propagates to listener)
+      // We can pre-fill with Firebase data if available, but this might be brief
+      // as the listener in AuthProvider should soon provide the full UserProfile.
+      const baseName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'New User';
+      const baseAvatar = firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${baseName.substring(0,1).toUpperCase()}`;
+      form.reset({
+        name: baseName,
+        bio: '',
+        avatarUrl: baseAvatar,
+      });
+      // It's also possible the profile doc doesn't exist in Firestore yet.
+      // The save operation (onSubmit) will handle creating it if needed.
     }
-    fetchProfile();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUser, authLoading, firebaseUser, router]); // form and toast removed, reset happens inside fetchProfile
+  }, [authUserProfile, firebaseUser, authLoading, router]); // form.reset included indirectly via form
 
   const onSubmit = async (data: ProfileFormValues) => {
-    if (!authUser || !firebaseUser) { 
+    if (!firebaseUser) { 
       toast({ title: "Not Authenticated", description: "Login required to save profile.", variant: "destructive" });
       return;
     }
     
-    const profileIdToUpdate = authUser.id;
+    const profileIdToUpdate = firebaseUser.id;
     setIsSaving(true);
 
     try {
-      // Check if profile exists to decide between update or create
-      const existingProfile = await getUserProfile(profileIdToUpdate);
-      
+      // The profile in context (authUserProfile) is live from Firestore listener.
+      // We use it to preserve fields not in the form, like isOnline.
       const profileDataForSave: UserProfile = {
         id: profileIdToUpdate,
         name: data.name,
-        email: firebaseUser.email || (existingProfile?.email || ''), // Preserve existing email if any
+        email: firebaseUser.email || (authUserProfile?.email || ''),
         avatarUrl: data.avatarUrl,
         bio: data.bio,
-        isOnline: existingProfile?.isOnline !== undefined ? existingProfile.isOnline : false, // Preserve existing online status
+        isOnline: authUserProfile?.isOnline !== undefined ? authUserProfile.isOnline : false,
+        // coinBalance: authUserProfile?.coinBalance // Preserve coinBalance if it were part of UserProfile from context
       };
 
       let savedProfile;
-      if (existingProfile) {
+      if (authUserProfile) { // If profile already exists (known from context)
         savedProfile = await updateUserProfile(profileIdToUpdate, profileDataForSave);
       } else {
+        // Profile doesn't exist in context, means it likely doesn't exist in DB yet, so create.
         savedProfile = await createUserProfile(profileDataForSave);
       }
       
       if (savedProfile) {
-        setUserProfile(savedProfile); 
-        form.reset({ 
-          name: savedProfile.name,
-          bio: savedProfile.bio || '',
-          avatarUrl: savedProfile.avatarUrl || '',
-        }); 
+        // AuthProvider's listener will pick up the change and update authUserProfile context.
+        // Form can be reset with savedProfile data, though listener should do this.
+        // For immediate feedback:
+         form.reset({ 
+           name: savedProfile.name,
+           bio: savedProfile.bio || '',
+           avatarUrl: savedProfile.avatarUrl || '',
+         }); 
         toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
       } else {
-        throw new Error("Profile update or creation failed.");
+        throw new Error("Profile update or creation failed at service level.");
       }
     } catch (error) {
       console.error("Failed to update profile:", error);
@@ -154,7 +131,7 @@ export function ProfileForm() {
     }
   };
 
-  if (isLoading) {
+  if (authLoading) {
     return (
       <div className="flex flex-col items-center justify-center space-y-4 py-10">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -163,13 +140,17 @@ export function ProfileForm() {
     );
   }
 
-  if (!authUser && !authLoading) {
+  if (!firebaseUser && !authLoading) { // Should have been redirected by useEffect, but as a safeguard
     return <p className="text-center text-destructive py-10">Redirecting to login...</p>;
   }
   
-  const currentName = form.getValues('name') || authUser?.name || 'User';
-  const currentAvatar = form.getValues('avatarUrl') || authUser?.avatarUrl || '';
-  const displayEmail = firebaseUser?.email || userProfile?.email || 'Not available';
+  // Watched values for dynamic avatar/name display if form is dirty
+  const watchedAvatarUrl = form.watch('avatarUrl');
+  const watchedName = form.watch('name');
+
+  const currentName = watchedName || authUserProfile?.name || firebaseUser?.displayName || 'User';
+  const currentAvatar = watchedAvatarUrl || authUserProfile?.avatarUrl || firebaseUser?.photoURL || `https://placehold.co/40x40.png?text=${currentName.substring(0,1).toUpperCase()}`;
+  const displayEmail = firebaseUser?.email || authUserProfile?.email || 'Not available';
 
   return (
     <Form {...form}>
@@ -178,7 +159,7 @@ export function ProfileForm() {
           <Avatar className="h-24 w-24 ring-2 ring-primary ring-offset-2 ring-offset-background">
             <AvatarImage src={currentAvatar} alt={currentName} data-ai-hint="user avatar large" />
             <AvatarFallback className="text-3xl">
-              {currentName.substring(0, 2).toUpperCase()}
+              {currentName ? currentName.substring(0, 2).toUpperCase() : 'U'}
             </AvatarFallback>
           </Avatar>
           <FormField
@@ -232,11 +213,11 @@ export function ProfileForm() {
           )}
         />
         
-        {userProfile && userProfile.isOnline !== undefined && (
+        {authUserProfile && authUserProfile.isOnline !== undefined && (
           <FormItem>
               <Label>Online Status</Label>
-              <p className={`text-sm font-medium p-2 rounded-md ${userProfile.isOnline ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                  Currently {userProfile.isOnline ? 'Online' : 'Offline'}
+              <p className={`text-sm font-medium p-2 rounded-md ${authUserProfile.isOnline ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                  Currently {authUserProfile.isOnline ? 'Online' : 'Offline'}
               </p>
               <FormDescription>Your online status is managed from the dashboard.</FormDescription>
           </FormItem>
@@ -258,5 +239,3 @@ export function ProfileForm() {
     </Form>
   );
 }
-
-    

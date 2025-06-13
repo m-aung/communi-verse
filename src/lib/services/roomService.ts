@@ -157,7 +157,7 @@ export async function getRoomParticipants(roomId: string): Promise<ChatUser[]> {
           id: profile.id,
           name: profile.name,
           avatarUrl: profile.avatarUrl,
-        };
+        } as ChatUser;
       }
       return null;
     });

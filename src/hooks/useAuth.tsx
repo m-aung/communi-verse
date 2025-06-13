@@ -2,7 +2,7 @@
 "use client";
 
 import type React from 'react';
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, createContext, useContext, useRef } from 'react';
 import { 
   type User as FirebaseUser, 
   onAuthStateChanged, 
@@ -10,13 +10,14 @@ import {
   createUserWithEmailAndPassword, 
   signOut as firebaseSignOut 
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase/clientApp';
-import type { ChatUser, UserProfile } from '@/lib/types'; 
+import { auth, db } from '@/lib/firebase/clientApp'; // Import db
+import { doc, onSnapshot, type Unsubscribe } from 'firebase/firestore'; // Import onSnapshot and doc
+import type { UserProfile } from '@/lib/types'; 
 import { createUserProfile, getUserProfile as fetchUserServiceProfile } from '@/lib/services/userService';
 import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
-  user: ChatUser | null;
+  userProfile: UserProfile | null; // Changed from user: ChatUser
   firebaseUser: FirebaseUser | null;
   loading: boolean;
   login: (email: string, pass: string) => Promise<void>;
@@ -27,103 +28,115 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<ChatUser | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null); // Changed state name
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const unsubscribeProfileListenerRef = useRef<Unsubscribe | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
-      if (fbUser) {
-        // setLoading(true) here makes authLoading reflect entire profile fetch too.
-        // For faster UI responsiveness, set loading(false) earlier:
-        const initialDisplayName = fbUser.displayName || fbUser.email?.split('@')[0] || 'User';
-        setUser({ // Set basic user object immediately
-          id: fbUser.uid,
-          name: initialDisplayName,
-          avatarUrl: fbUser.photoURL || `https://placehold.co/40x40.png?text=${initialDisplayName.substring(0,1).toUpperCase()}`
-        });
-        setLoading(false); // Firebase auth state resolved, set loading to false. Profile fetch happens next.
+      
+      // Clean up previous profile listener if any
+      if (unsubscribeProfileListenerRef.current) {
+        unsubscribeProfileListenerRef.current();
+        unsubscribeProfileListenerRef.current = null;
+      }
 
-        try {
-          let appProfile = await fetchUserServiceProfile(fbUser.uid);
-          if (!appProfile) {
-            let nameForNewProfile = 'New User'; // Default if no displayName
-            if (fbUser.displayName && fbUser.displayName.trim() !== '') {
-              nameForNewProfile = fbUser.displayName.trim();
-            } else if (fbUser.email) {
-              nameForNewProfile = fbUser.email.split('@')[0]; // Fallback to email prefix if no displayName
+      if (fbUser) {
+        setLoading(true); // Start loading when fbUser is present, until profile is fetched/listened
+
+        // Set up a real-time listener for the user's profile document
+        const userDocRef = doc(db, 'users', fbUser.uid);
+        unsubscribeProfileListenerRef.current = onSnapshot(userDocRef, async (docSnap) => {
+          if (docSnap.exists()) {
+            setUserProfile({ id: docSnap.id, ...docSnap.data() } as UserProfile);
+          } else {
+            // Profile doesn't exist, attempt to create it (especially for new signups)
+            // This might happen if signup process creates Firebase user before profile doc is ready
+            // Or if fetchUserServiceProfile in signup somehow failed or was slow.
+            // Let's try to fetch/create it one more time here if listener finds nothing.
+            try {
+              let profile = await fetchUserServiceProfile(fbUser.uid);
+              if (!profile) {
+                const nameForNewProfile = fbUser.displayName || fbUser.email?.split('@')[0] || 'New User';
+                const newProfileData: UserProfile = { 
+                  id: fbUser.uid, 
+                  name: nameForNewProfile, 
+                  email: fbUser.email || '',
+                  avatarUrl: fbUser.photoURL || `https://placehold.co/40x40.png?text=${nameForNewProfile.substring(0,1).toUpperCase()}`,
+                  isOnline: false, 
+                  bio: '' 
+                };
+                profile = await createUserProfile(newProfileData); // This will be picked up by listener if successful
+              }
+              // If profile is fetched/created here, onSnapshot will eventually update userProfile state.
+              // If still null, it means user truly has no profile record.
+              if(!profile) setUserProfile(null) // Explicitly set to null if still not found
+            } catch (error) {
+              console.error("Error fetching/creating profile in auth listener fallback:", error);
+              setUserProfile(null); // Set to null on error
             }
-            
-            const newProfileData: UserProfile = { 
-              id: fbUser.uid, 
-              name: nameForNewProfile, 
-              email: fbUser.email || '',
-              avatarUrl: fbUser.photoURL || `https://placehold.co/40x40.png?text=${nameForNewProfile.substring(0,1).toUpperCase()}`,
-              isOnline: false, 
-              bio: '' 
-            };
-            appProfile = await createUserProfile(newProfileData);
           }
-          
-          if (appProfile) { // If profile fetched or created, update user context
-            setUser({
-              id: appProfile.id,
-              name: appProfile.name,
-              avatarUrl: appProfile.avatarUrl,
-            });
-          }
-        } catch (profileError) {
-          console.error("Error fetching/creating app profile in useAuth:", profileError);
-          // User context still has basic info from Firebase.
-        }
-        // setLoading(false) was moved up
+          setLoading(false); // Profile loaded or attempt finished
+        }, (error) => {
+          console.error("Error listening to user profile:", error);
+          setUserProfile(null);
+          setLoading(false);
+        });
+
       } else {
-        setUser(null);
+        setUserProfile(null);
         setLoading(false); 
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfileListenerRef.current) {
+        unsubscribeProfileListenerRef.current();
+      }
+    };
   }, []);
 
   const login = async (email: string, pass: string) => {
-    // setLoading(true); // onAuthStateChanged will handle this
     await signInWithEmailAndPassword(auth, email, pass);
+    // onAuthStateChanged and its profile listener will handle setting userProfile
     router.push('/');
   };
 
   const signup = async (email: string, pass: string, name: string) => {
-    // setLoading(true); // onAuthStateChanged will handle this
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     const fbUser = userCredential.user;
     if (fbUser) {
+      // Create the profile. The onSnapshot listener in AuthProvider will pick up this change.
       const profileData: UserProfile = {
         id: fbUser.uid,
         name: name, 
         email: fbUser.email || '',
         avatarUrl: fbUser.photoURL || `https://placehold.co/40x40.png?text=${name.substring(0,1).toUpperCase()}`,
-        isOnline: false,
+        isOnline: false, // Default to offline, listener will update if already set otherwise
         bio: '',
       };
-      await createUserProfile(profileData);
-      setUser({ // Update local user state immediately
-        id: profileData.id,
-        name: profileData.name,
-        avatarUrl: profileData.avatarUrl,
-      });
+      try {
+        await createUserProfile(profileData);
+      } catch (error) {
+        console.error("Error creating profile during signup:", error);
+        // Potentially sign out the user or handle error more gracefully
+      }
     }
     router.push('/');
   };
 
   const logout = async () => {
     await firebaseSignOut(auth);
+    // onAuthStateChanged will set firebaseUser and userProfile to null
     router.push('/login');
   };
 
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ userProfile, firebaseUser, loading, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -17,7 +17,7 @@ export interface Room {
   description?: string;
   participantIds: string[]; // Array of Firebase UIDs for users in the room
   admissionFee?: number; // Optional: cost in coins to enter
-  // userCount will be derived from participantIds.length when fetching
+  userCount?:number// userCount will be derived from participantIds.length when fetching
 }
 
 export interface ChatUser {

@@ -6,11 +6,11 @@ import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Users, LogIn, Sparkles, Loader2, Diamond, Coins } from 'lucide-react';
-import type { Room, UserProfile } from '@/lib/types';
+import type { Room, UserProfile } from '@/lib/types'; // UserProfile is now for context
 import { useState, useEffect } from 'react';
 import { getRoomVibe } from '@/ai/flows/room-vibe-flow';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/useAuth'; // Using enhanced useAuth
 import { useRouter } from 'next/navigation';
 import {
   AlertDialog,
@@ -22,15 +22,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { getUserProfile } from '@/lib/services/userService';
-
+// No longer need getUserProfile here as it comes from useAuth
 
 interface RoomCardProps {
   room: Room & { userCount: number };
 }
 
 export function RoomCard({ room }: RoomCardProps) {
-  const { user: authUser, loading: authLoading } = useAuth();
+  // Get userProfile and authLoading from useAuth context
+  const { userProfile, loading: authLoading, firebaseUser } = useAuth(); 
   const router = useRouter();
   const { toast } = useToast();
 
@@ -51,30 +51,8 @@ export function RoomCard({ room }: RoomCardProps) {
   const [isVibeLoading, setIsVibeLoading] = useState(false);
   const [showPremiumEntryDialog, setShowPremiumEntryDialog] = useState(false);
 
-  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
-
-  useEffect(() => {
-    if (authUser && !authLoading) {
-      setIsLoadingProfile(true);
-      getUserProfile(authUser.id)
-        .then((profile) => {
-          setCurrentUserProfile(profile);
-        })
-        .catch((err) => {
-          console.error("RoomCard: Failed to fetch user profile", err);
-          setCurrentUserProfile(null);
-        })
-        .finally(() => {
-          setIsLoadingProfile(false);
-        });
-    } else if (!authLoading) { // No authUser or auth is done loading
-      setCurrentUserProfile(null);
-      setIsLoadingProfile(false);
-    }
-  }, [authUser, authLoading]);
-
-  const isUserOnline = !!currentUserProfile?.isOnline;
+  // isUserOnline is now derived from context's userProfile
+  const isUserOnline = !!userProfile?.isOnline;
 
   const handleMouseEnter = async () => {
     if (!vibeDescription && !isVibeLoading && room.name) {
@@ -101,31 +79,32 @@ export function RoomCard({ room }: RoomCardProps) {
       return;
     }
 
-    if (!authUser) {
-      if (room.admissionFee && room.admissionFee > 0) {
-        setShowPremiumEntryDialog(true); // Dialog will prompt login for payment
-      } else {
-        // Free room, user not logged in
-        toast({
-          title: "Login Required",
-          description: "Please log in to enter this room.",
-          variant: "destructive",
-          action: <Button onClick={() => router.push('/login')}>Login</Button>,
-        });
-      }
-      return;
-    }
-
-    // User is authenticated, check if profile is loaded
-    if (isLoadingProfile) {
+    if (authLoading) { // Check if auth context is still loading
         toast({
             title: "Loading Status",
-            description: "Please wait while we check your online status.",
+            description: "Please wait while we check your authentication status.",
         });
         return;
     }
     
-    // User is authenticated, profile loaded, check online status
+    if (!firebaseUser) { // Check if user is authenticated via firebaseUser from context
+      if (room.admissionFee && room.admissionFee > 0) {
+        setShowPremiumEntryDialog(true); 
+      } else {
+        toast({
+          title: "Login Required",
+          description: "Please log in to enter this room.",
+          variant: "default", // Changed from destructive to default as it's a common action
+          action: <Button onClick={() => router.push('/login')}>Login</Button>,
+        });
+      }
+      return; // Stop further execution if not authenticated or if auth is loading
+    }
+
+    // User is authenticated (firebaseUser exists), now check online status from userProfile
+    // userProfile might still be null if listener hasn't populated it yet, covered by authLoading check above.
+    // If !authLoading and firebaseUser exists, userProfile should ideally be available.
+    // However, if userProfile is null even after authLoading is false (e.g. Firestore error for profile), treat as offline.
     if (!isUserOnline) {
       toast({
         title: "You are Offline",
@@ -135,7 +114,7 @@ export function RoomCard({ room }: RoomCardProps) {
       return;
     }
 
-    // User is online and authenticated
+    // User is authenticated and online
     if (room.admissionFee && room.admissionFee > 0) {
       setShowPremiumEntryDialog(true);
     } else {
@@ -144,19 +123,16 @@ export function RoomCard({ room }: RoomCardProps) {
   };
 
   const handleConfirmPremiumEntry = () => {
-    // This function is called when user confirms in the dialog
-    // AuthUser and online status should already be confirmed by handleEnterRoomClick
-    // or the dialog's own action button disabled state.
+    // userProfile and isUserOnline are from context and re-checked by button's disabled state
+    // firebaseUser check is also implicitly handled by the dialog's action button disabled state
     
-    // TODO: Implement actual coin check and deduction with userService
-    const hasEnoughCoins = true; // Simulate user having enough coins
+    const hasEnoughCoins = true; // Simulate
 
     if (hasEnoughCoins) {
       toast({
         title: "Entry Confirmed",
         description: `Welcome to ${room.name}! ${room.admissionFee} coins deducted. (Simulated)`,
       });
-      // userService.deductCoins(authUser.id, room.admissionFee); // Future implementation
       setShowPremiumEntryDialog(false);
       if (isValidRoomId) {
         router.push(roomLinkHref);
@@ -176,12 +152,19 @@ export function RoomCard({ room }: RoomCardProps) {
     console.warn(`RoomCard: Invalid or missing room.id for room object: ${JSON.stringify(room)}. Disabling link and actions.`);
   }
 
-  const isPremiumRoom = room.admissionFee && room.admissionFee > 0;
+  const isPremiumRoom = room.admissionFee !== undefined && room.admissionFee > 0;
+
+  // Button disabled logic updated to use authLoading and isUserOnline from context
   const buttonDisabled = 
     !isValidRoomId || 
-    (!!authUser && isLoadingProfile) || 
-    (!!authUser && !isUserOnline && !isLoadingProfile) ||
-    (!authUser && !isPremiumRoom); // Disable free rooms if not logged in. Premium rooms handle via dialog.
+    authLoading || // Disabled if auth/profile is loading
+    (!!firebaseUser && !isUserOnline) || // Disabled if authenticated but offline
+    (!firebaseUser && !isPremiumRoom); // Disabled for free rooms if not authenticated. Premium handles via dialog.
+
+  const alertDialogActionDisabled = 
+    authLoading || 
+    !firebaseUser || 
+    (!!firebaseUser && !isUserOnline);
 
 
   return (
@@ -238,6 +221,7 @@ export function RoomCard({ room }: RoomCardProps) {
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" 
             disabled={buttonDisabled}
           >
+            {authLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isPremiumRoom ? (
               <>
                 <Diamond className="mr-2 h-4 w-4" /> Enter Premium Room
@@ -259,14 +243,17 @@ export function RoomCard({ room }: RoomCardProps) {
               <AlertDialogDescription>
                 This room requires an admission fee of <strong className="text-foreground">{room.admissionFee} coins</strong>.
                 Do you want to spend {room.admissionFee} coins to enter? (Coin balance check is simulated)
+                {!isUserOnline && firebaseUser && <p className="mt-2 text-destructive-foreground bg-destructive p-2 rounded-md">You must be online to enter.</p>}
+                {!firebaseUser && <p className="mt-2 text-destructive-foreground bg-destructive p-2 rounded-md">Please log in to enter.</p>}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction 
                 onClick={handleConfirmPremiumEntry} 
-                disabled={!authUser || (!!authUser && isLoadingProfile) || (!!authUser && !isUserOnline && !isLoadingProfile)}
+                disabled={alertDialogActionDisabled}
               >
+                {authLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Enter ({room.admissionFee} Coins)
               </AlertDialogAction>
             </AlertDialogFooter>
