@@ -5,96 +5,96 @@
 
 @layer base {
   :root {
-    /* CommuniVerse Theme: Vivid Purple, Desaturated Purple-Gray, Reddish-Purple Accent */
-    --background: 270 15% 94%;         /* #F0EDF2 - Light Desaturated Purple-Gray */
-    --foreground: 270 10% 25%;         /* Darker Desaturated Purple-Gray for text */
+    /* Cosmic Comfort Theme - Light Mode */
+    --background: 40 30% 95%;         /* Light soft cream/beige */
+    --foreground: 30 15% 25%;         /* Dark desaturated brown */
 
-    --card: 0 0% 100%;                  /* White for cards to maintain contrast */
-    --card-foreground: 270 10% 25%;    /* Same as main foreground */
+    --card: 40 30% 98%;                  /* Slightly lighter cream, or 0 0% 100% for pure white */
+    --card-foreground: 30 15% 25%;    /* Same as main foreground */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 270 10% 25%;
+    --popover: 40 30% 98%;
+    --popover-foreground: 30 15% 25%;
 
-    --primary: 273 70% 61%;            /* #9D4EDD - Vivid Purple */
-    --primary-foreground: 0 0% 100%;    /* White */
+    --primary: 30 90% 60%;            /* Warm, inviting orange (lamplight) */
+    --primary-foreground: 30 50% 10%;    /* Very dark brown/off-black for text on orange */
 
-    --secondary: 273 70% 90%;          /* Lighter Vivid Purple */
-    --secondary-foreground: 273 70% 40%; /* Darker text on light secondary */
+    --secondary: 30 80% 85%;          /* Lighter warm orange */
+    --secondary-foreground: 30 50% 20%; /* Darker text on light secondary */
 
-    --muted: 270 15% 90%;              /* Very Light Desaturated Purple-Gray */
-    --muted-foreground: 270 10% 45%;    /* Medium Desaturated Purple-Gray */
+    --muted: 40 25% 90%;              /* Very Light warm gray/beige */
+    --muted-foreground: 30 15% 45%;    /* Medium warm gray/brown */
 
-    --accent: 323 42% 78%;             /* #E0AED0 - Reddish-Purple */
-    --accent-foreground: 323 40% 20%;   /* Dark text on accent for contrast */
+    --accent: 270 50% 55%;             /* Rich, deep purple (nebula) */
+    --accent-foreground: 270 50% 95%;   /* Light cream text on purple */
     
-    --destructive: 0 75% 55%;          /* Standard Red for destructive actions */
+    --destructive: 0 70% 55%;          /* Standard Red for destructive actions */
     --destructive-foreground: 0 0% 98%; /* Light text on destructive */
 
-    --border: 270 20% 88%;             /* Light purple-gray border */
-    --input: 270 20% 92%;              /* Very light purple-gray input background */
-    --ring: 273 70% 65%;               /* Primary color for focus rings (slightly lighter primary) */
+    --border: 35 20% 85%;             /* Soft warm beige/gray border */
+    --input: 40 30% 92%;              /* Light cream/beige input background */
+    --ring: 30 90% 65%;               /* Primary color for focus rings (slightly lighter primary) */
 
-    --chart-1: 273 70% 61%; /* primary */
-    --chart-2: 323 42% 78%;  /* accent */
-    --chart-3: 190 70% 50%; /* A contrasting teal/cyan */
-    --chart-4: 30 90% 60%;  /* A contrasting orange/yellow */
-    --chart-5: 120 60% 55%; /* A contrasting green */
+    --chart-1: 30 90% 60%; /* primary - orange */
+    --chart-2: 270 50% 55%; /* accent - purple */
+    --chart-3: 170 40% 55%; /* Muted Teal */
+    --chart-4: 50 70% 70%;  /* Soft Yellow */
+    --chart-5: 320 40% 75%; /* Muted Pink */
     --radius: 0.5rem;
 
-    --sidebar-background: 270 15% 92%;
-    --sidebar-foreground: 270 10% 20%;
-    --sidebar-primary: 273 70% 61%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 323 42% 78%;
-    --sidebar-accent-foreground: 323 40% 20%;
-    --sidebar-border: 270 20% 85%;
-    --sidebar-ring: 273 70% 65%;
+    --sidebar-background: 40 30% 93%; /* Consistent with main bg/card */
+    --sidebar-foreground: 30 15% 20%;
+    --sidebar-primary: 30 90% 60%;
+    --sidebar-primary-foreground: 30 50% 10%;
+    --sidebar-accent: 270 50% 55%;
+    --sidebar-accent-foreground: 270 50% 95%;
+    --sidebar-border: 35 20% 82%;
+    --sidebar-ring: 30 90% 65%;
   }
 
   .dark {
-    /* CommuniVerse Dark Theme */
-    --background: 270 10% 12%;         /* #1E1C21 - Dark Desaturated Purple-Gray */
-    --foreground: 270 10% 85%;         /* Light Desaturated Purple-Gray for text */
+    /* Cosmic Comfort Theme - Dark Mode */
+    --background: 260 30% 15%;         /* Deep, dark indigo/purple (night sky) */
+    --foreground: 40 40% 85%;         /* Light, warm cream/beige (starlight) */
 
-    --card: 270 10% 16%;               /* Slightly lighter than background */
-    --card-foreground: 270 10% 85%;
+    --card: 260 25% 18%;               /* Slightly lighter than background */
+    --card-foreground: 40 40% 85%;
 
-    --popover: 270 10% 16%;
-    --popover-foreground: 270 10% 85%;
+    --popover: 260 25% 18%;
+    --popover-foreground: 40 40% 85%;
 
-    --primary: 273 70% 68%;            /* Brighter Vivid Purple for dark mode */
-    --primary-foreground: 270 10% 15%;   /* Dark text for contrast on brighter primary */
+    --primary: 35 95% 65%;            /* Vibrant golden-orange (prominent lamp glow) */
+    --primary-foreground: 35 60% 10%;   /* Very dark, rich brown for text on orange */
 
-    --secondary: 273 60% 25%;          /* Darker Muted Purple */
-    --secondary-foreground: 273 60% 75%; /* Lighter text on dark secondary */
+    --secondary: 260 30% 25%;          /* Darker Muted purple/blue */
+    --secondary-foreground: 260 30% 75%; /* Lighter text on dark secondary */
 
-    --muted: 270 10% 22%;              /* Medium-Dark Desaturated Purple-Gray */
-    --muted-foreground: 270 10% 65%;    /* Lighter Gray for muted text */
+    --muted: 260 20% 22%;              /* Medium-Dark indigo/purple */
+    --muted-foreground: 40 30% 70%;    /* Muted warm beige */
 
-    --accent: 323 50% 82%;             /* Brighter Reddish-Purple for dark mode */
-    --accent-foreground: 323 40% 15%;   /* Very dark text for contrast on accent */
+    --accent: 10 60% 50%;             /* Earthy, warm red (armchairs/curtains) */
+    --accent-foreground: 10 60% 95%;   /* Light cream text on red */
 
-    --destructive: 0 80% 60%;          /* Standard Red */
+    --destructive: 0 75% 60%;          /* Standard Red */
     --destructive-foreground: 0 0% 98%;
 
-    --border: 270 10% 25%;             /* Dark purple-gray border */
-    --input: 270 10% 20%;              /* Very dark purple-gray input */
-    --ring: 273 70% 72%;               /* Brighter primary for focus rings */
+    --border: 260 20% 25%;             /* Dark purple/blue border */
+    --input: 260 20% 20%;              /* Very dark purple/blue input */
+    --ring: 35 95% 70%;               /* Brighter primary for focus rings */
 
-    --chart-1: 273 70% 68%; /* primary (dark theme) */
-    --chart-2: 323 50% 82%;  /* accent (dark theme) */
-    --chart-3: 190 70% 60%; /* A contrasting teal/cyan (dark theme) */
-    --chart-4: 30 90% 70%;  /* A contrasting orange/yellow (dark theme) */
-    --chart-5: 120 60% 65%; /* A contrasting green (dark theme) */
+    --chart-1: 35 95% 65%; /* primary (dark theme) - golden orange */
+    --chart-2: 10 60% 50%;  /* accent (dark theme) - earthy red */
+    --chart-3: 170 40% 45%; /* Muted Teal */
+    --chart-4: 50 60% 60%;  /* Soft Yellow */
+    --chart-5: 320 30% 65%; /* Muted Pink */
 
-    --sidebar-background: 270 10% 14%;
-    --sidebar-foreground: 270 10% 80%;
-    --sidebar-primary: 273 70% 68%;
-    --sidebar-primary-foreground: 270 10% 15%;
-    --sidebar-accent: 323 50% 82%;
-    --sidebar-accent-foreground: 323 40% 15%;
-    --sidebar-border: 270 10% 22%;
-    --sidebar-ring: 273 70% 72%;
+    --sidebar-background: 260 30% 14%;
+    --sidebar-foreground: 40 40% 80%;
+    --sidebar-primary: 35 95% 65%;
+    --sidebar-primary-foreground: 35 60% 10%;
+    --sidebar-accent: 10 60% 50%;
+    --sidebar-accent-foreground: 10 60% 95%;
+    --sidebar-border: 260 20% 22%;
+    --sidebar-ring: 35 95% 70%;
   }
 
   body {
