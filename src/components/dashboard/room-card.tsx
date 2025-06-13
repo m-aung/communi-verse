@@ -6,11 +6,11 @@ import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Users, LogIn, Sparkles, Loader2, Diamond, Coins } from 'lucide-react';
-import type { Room } from '@/lib/types';
-import { useState } from 'react';
+import type { Room, UserProfile } from '@/lib/types';
+import { useState, useEffect } from 'react';
 import { getRoomVibe } from '@/ai/flows/room-vibe-flow';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth'; 
+import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import {
   AlertDialog,
@@ -21,15 +21,16 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
+import { getUserProfile } from '@/lib/services/userService';
 
 
 interface RoomCardProps {
-  room: Room & { userCount: number }; // Corrected type
+  room: Room & { userCount: number };
 }
 
 export function RoomCard({ room }: RoomCardProps) {
-  const { user: authUser } = useAuth();
+  const { user: authUser, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -50,6 +51,31 @@ export function RoomCard({ room }: RoomCardProps) {
   const [isVibeLoading, setIsVibeLoading] = useState(false);
   const [showPremiumEntryDialog, setShowPremiumEntryDialog] = useState(false);
 
+  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+
+  useEffect(() => {
+    if (authUser && !authLoading) {
+      setIsLoadingProfile(true);
+      getUserProfile(authUser.id)
+        .then((profile) => {
+          setCurrentUserProfile(profile);
+        })
+        .catch((err) => {
+          console.error("RoomCard: Failed to fetch user profile", err);
+          setCurrentUserProfile(null);
+        })
+        .finally(() => {
+          setIsLoadingProfile(false);
+        });
+    } else if (!authLoading) { // No authUser or auth is done loading
+      setCurrentUserProfile(null);
+      setIsLoadingProfile(false);
+    }
+  }, [authUser, authLoading]);
+
+  const isUserOnline = !!currentUserProfile?.isOnline;
+
   const handleMouseEnter = async () => {
     if (!vibeDescription && !isVibeLoading && room.name) {
       setIsVibeLoading(true);
@@ -58,8 +84,6 @@ export function RoomCard({ room }: RoomCardProps) {
         setVibeDescription(result.vibe);
       } catch (error) {
         console.error("Error fetching room vibe:", error);
-        // Optionally set a fallback or error message for vibeDescription
-        // setVibeDescription("Could not fetch vibe...");
       } finally {
         setIsVibeLoading(false);
       }
@@ -76,30 +100,55 @@ export function RoomCard({ room }: RoomCardProps) {
       });
       return;
     }
-    if (room.admissionFee && room.admissionFee > 0) {
-      e.preventDefault(); // Prevent direct navigation
-      if (!authUser) {
+
+    if (!authUser) {
+      if (room.admissionFee && room.admissionFee > 0) {
+        setShowPremiumEntryDialog(true); // Dialog will prompt login for payment
+      } else {
+        // Free room, user not logged in
         toast({
-          title: "Authentication Required",
-          description: "Please log in to enter premium rooms.",
+          title: "Login Required",
+          description: "Please log in to enter this room.",
           variant: "destructive",
           action: <Button onClick={() => router.push('/login')}>Login</Button>,
         });
-        return;
       }
-      setShowPremiumEntryDialog(true);
+      return;
     }
-    // For free rooms, the Link component will handle navigation if asChild is true
+
+    // User is authenticated, check if profile is loaded
+    if (isLoadingProfile) {
+        toast({
+            title: "Loading Status",
+            description: "Please wait while we check your online status.",
+        });
+        return;
+    }
+    
+    // User is authenticated, profile loaded, check online status
+    if (!isUserOnline) {
+      toast({
+        title: "You are Offline",
+        description: "Please go online from the dashboard to enter rooms.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // User is online and authenticated
+    if (room.admissionFee && room.admissionFee > 0) {
+      setShowPremiumEntryDialog(true);
+    } else {
+      router.push(roomLinkHref);
+    }
   };
 
   const handleConfirmPremiumEntry = () => {
+    // This function is called when user confirms in the dialog
+    // AuthUser and online status should already be confirmed by handleEnterRoomClick
+    // or the dialog's own action button disabled state.
+    
     // TODO: Implement actual coin check and deduction with userService
-    // For now, simulate successful entry
-    if (!authUser) { // Should not happen if button is enabled correctly, but good check
-        toast({ title: "Error", description: "User not authenticated.", variant: "destructive"});
-        setShowPremiumEntryDialog(false);
-        return;
-    }
     const hasEnoughCoins = true; // Simulate user having enough coins
 
     if (hasEnoughCoins) {
@@ -123,10 +172,17 @@ export function RoomCard({ room }: RoomCardProps) {
     }
   };
 
-
   if (!isValidRoomId && typeof console !== 'undefined') { 
     console.warn(`RoomCard: Invalid or missing room.id for room object: ${JSON.stringify(room)}. Disabling link and actions.`);
   }
+
+  const isPremiumRoom = room.admissionFee && room.admissionFee > 0;
+  const buttonDisabled = 
+    !isValidRoomId || 
+    (!!authUser && isLoadingProfile) || 
+    (!!authUser && !isUserOnline && !isLoadingProfile) ||
+    (!authUser && !isPremiumRoom); // Disable free rooms if not logged in. Premium rooms handle via dialog.
+
 
   return (
     <>
@@ -144,7 +200,7 @@ export function RoomCard({ room }: RoomCardProps) {
               data-ai-hint={aiHint}
               priority={false} 
             />
-            {room.admissionFee && room.admissionFee > 0 && (
+            {isPremiumRoom && (
               <div className="absolute top-2 right-2 bg-accent text-accent-foreground px-2 py-1 rounded-md text-xs font-semibold flex items-center shadow-lg">
                 <Diamond className="mr-1 h-3 w-3" /> Premium
               </div>
@@ -152,7 +208,6 @@ export function RoomCard({ room }: RoomCardProps) {
           </div>
           <CardTitle className="font-headline text-xl">{room.name || 'Unnamed Room'}</CardTitle>
           {room.description && <CardDescription className="text-sm">{room.description}</CardDescription>}
-          
           {isVibeLoading && (
             <div className="flex items-center text-xs text-muted-foreground mt-1">
               <Loader2 className="mr-1 h-3 w-3 animate-spin" />
@@ -170,7 +225,7 @@ export function RoomCard({ room }: RoomCardProps) {
             <Users className="mr-2 h-4 w-4" />
             <span>{room.userCount} / {room.capacity || 15} users</span>
           </div>
-          {room.admissionFee && room.admissionFee > 0 && (
+          {isPremiumRoom && (
             <div className="flex items-center text-sm text-yellow-600 dark:text-yellow-400 mt-2 font-semibold">
               <Coins className="mr-1 h-4 w-4" />
               <span>{room.admissionFee} Coins to Enter</span>
@@ -180,33 +235,23 @@ export function RoomCard({ room }: RoomCardProps) {
         <CardFooter>
           <Button 
             onClick={handleEnterRoomClick}
-            asChild={!(room.admissionFee && room.admissionFee > 0) && isValidRoomId} 
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" 
-            disabled={!isValidRoomId}
+            disabled={buttonDisabled}
           >
-            { (room.admissionFee && room.admissionFee > 0) ? (
+            {isPremiumRoom ? (
               <>
                 <Diamond className="mr-2 h-4 w-4" /> Enter Premium Room
               </>
             ) : (
-              isValidRoomId ? (
-                <Link 
-                  href={roomLinkHref} 
-                  aria-disabled={!isValidRoomId}
-                >
-                  <LogIn className="mr-2 h-4 w-4" /> Enter Room
-                </Link>
-              ) : (
-                <>
-                  <LogIn className="mr-2 h-4 w-4" /> Enter Room
-                </>
-              )
+              <>
+                <LogIn className="mr-2 h-4 w-4" /> Enter Room
+              </>
             )}
           </Button>
         </CardFooter>
       </Card>
 
-      {room.admissionFee && room.admissionFee > 0 && (
+      {isPremiumRoom && (
         <AlertDialog open={showPremiumEntryDialog} onOpenChange={setShowPremiumEntryDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -218,7 +263,10 @@ export function RoomCard({ room }: RoomCardProps) {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleConfirmPremiumEntry} disabled={!authUser}>
+              <AlertDialogAction 
+                onClick={handleConfirmPremiumEntry} 
+                disabled={!authUser || (!!authUser && isLoadingProfile) || (!!authUser && !isUserOnline && !isLoadingProfile)}
+              >
                 Enter ({room.admissionFee} Coins)
               </AlertDialogAction>
             </AlertDialogFooter>
