@@ -39,7 +39,7 @@ export function OnlineStatusButton() {
       const newStatus = !currentIsOnline;
       
       // Only update in Firestore. Context will update via listener in AuthProvider.
-      const updateSucceeded = await updateUserProfile(firebaseUser.id, { isOnline: newStatus });
+      const updateSucceeded = await updateUserProfile(firebaseUser?.uid, { isOnline: newStatus });
       
       if (updateSucceeded) {
         // The AuthProvider's listener will update the context and UI.

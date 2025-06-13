@@ -1,7 +1,7 @@
 
 import { LoginForm } from '@/components/auth/login-form';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import Image from 'next/image'; // Added import
+import Image from 'next/image';
 
 export default function LoginPage() {
   return (
@@ -10,11 +10,11 @@ export default function LoginPage() {
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <Image
-              src="https://placehold.co/150x100.png"
-              alt="CommuniVerse Welcome"
-              width={120}
-              height={80}
-              data-ai-hint="abstract community"
+              src="/logo.png" // Updated image path
+              alt="CommuniVerse Logo"
+              width={100} // Adjusted size
+              height={100} // Adjusted size
+              data-ai-hint="cosmic chat"
               className="rounded-lg"
             />
           </div>

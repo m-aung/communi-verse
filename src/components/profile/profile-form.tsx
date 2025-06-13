@@ -86,7 +86,7 @@ export function ProfileForm() {
       return;
     }
     
-    const profileIdToUpdate = firebaseUser.id;
+    const profileIdToUpdate = firebaseUser?.uid;
     setIsSaving(true);
 
     try {
@@ -102,15 +102,15 @@ export function ProfileForm() {
         // coinBalance: authUserProfile?.coinBalance // Preserve coinBalance if it were part of UserProfile from context
       };
 
-      let savedProfile;
+      let savedProfile:UserProfile | undefined;
       if (authUserProfile) { // If profile already exists (known from context)
-        savedProfile = await updateUserProfile(profileIdToUpdate, profileDataForSave);
+        await updateUserProfile(profileIdToUpdate, profileDataForSave);
       } else {
         // Profile doesn't exist in context, means it likely doesn't exist in DB yet, so create.
         savedProfile = await createUserProfile(profileDataForSave);
       }
       
-      if (savedProfile) {
+      if (savedProfile !== undefined) {
         // AuthProvider's listener will pick up the change and update authUserProfile context.
         // Form can be reset with savedProfile data, though listener should do this.
         // For immediate feedback:

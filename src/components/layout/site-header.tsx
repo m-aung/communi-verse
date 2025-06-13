@@ -2,6 +2,7 @@
 "use client";
 
 import Link from 'next/link';
+import Image from 'next/image'; // Added Image import
 import { Button } from '@/components/ui/button';
 import { Coins, Home, LogOut, ShoppingCart, UserCircle2, LogInIcon, Menu } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,7 +12,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle 
 import { useState } from 'react';
 
 export function SiteHeader() {
-  const { userProfile, loading, logout } = useAuth(); // Changed user to userProfile
+  const { userProfile, loading, logout } = useAuth();
   const { toast } = useToast();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -19,7 +20,7 @@ export function SiteHeader() {
     try {
       await logout();
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
-      setIsMobileMenuOpen(false); 
+      setIsMobileMenuOpen(false);
     } catch (error: any) {
       toast({ title: 'Logout Failed', description: error.message, variant: 'destructive' });
     }
@@ -51,7 +52,7 @@ export function SiteHeader() {
           <Skeleton className="h-8 w-full" />
           <Skeleton className="h-8 w-full" />
         </div>
-      ) : userProfile ? ( // Check userProfile
+      ) : userProfile ? (
         <>
           <div className="px-3 py-2 text-sm font-medium text-muted-foreground">
             Hi, {userProfile.name.split(' ')[0]}
@@ -82,7 +83,15 @@ export function SiteHeader() {
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50 shadow-sm">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between flex-wrap">
-        <Link href="/" className="text-2xl font-bold font-headline text-primary">
+        <Link href="/" className="flex items-center gap-2 text-2xl font-bold font-headline text-primary">
+          <Image
+            src="/logo.png" // New logo path
+            alt="CommuniVerse App Logo"
+            width={32} // Adjusted size for header
+            height={32} // Adjusted size for header
+            data-ai-hint="cosmic chat"
+            className="rounded-md" // Optional: if you want slightly rounded corners for the logo itself
+          />
           CommuniVerse
         </Link>
 
@@ -104,7 +113,7 @@ export function SiteHeader() {
               <Skeleton className="h-5 w-10" /> 
               <Skeleton className="h-8 w-8 rounded-full" />
             </div>
-          ) : userProfile ? ( // Check userProfile
+          ) : userProfile ? (
             <>
               <span className="text-sm text-muted-foreground hidden sm:inline">Hi, {userProfile.name.split(' ')[0]}</span>
               <Button variant="ghost" size="icon" asChild>
@@ -141,7 +150,15 @@ export function SiteHeader() {
                 <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
               </SheetHeader>
               <div className="flex flex-col space-y-2">
-                <Link href="/" className="text-xl font-bold font-headline text-primary mb-4" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href="/" className="flex items-center gap-2 text-xl font-bold font-headline text-primary mb-4" onClick={() => setIsMobileMenuOpen(false)}>
+                   <Image
+                    src="/logo.png" // New logo path for mobile menu
+                    alt="CommuniVerse App Logo"
+                    width={28} // Slightly smaller for mobile menu
+                    height={28}
+                    data-ai-hint="cosmic chat"
+                    className="rounded-md"
+                  />
                   CommuniVerse
                 </Link>
                 {commonNavLinks}

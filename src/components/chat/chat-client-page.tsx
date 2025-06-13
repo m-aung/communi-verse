@@ -59,7 +59,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
       setIsLoadingPage(true); // Keep true until first participant snapshot
       setIsLoadingMessages(true);
 
-      addUserToRoom(room.id, firebaseUser.id)
+      addUserToRoom(room.id, firebaseUser?.uid)
         .catch(error => {
           console.error("Error ensuring user is in room:", error);
           toast({ title: "Entry Error", description: "Could not ensure your presence in the room.", variant: "destructive" });
@@ -145,7 +145,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
 
 
     const currentRoomId = room.id;
-    const currentAuthUserId: string | null = firebaseUser ? firebaseUser.id : null;
+    const currentAuthUserId: string | null = firebaseUser ? firebaseUser?.uid : null;
 
     return () => {
       if (unsubscribeParticipantsRef.current) {
@@ -202,7 +202,7 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
       description: `You gifted coins to ${user.name}. (This is a demo)`,
       duration: 3000,
     });
-    logGiftSent(firebaseUser.id, user.id, room.id);
+    logGiftSent(firebaseUser?.uid, user.id, room.id);
   };
 
   const handleFollowUser = (user: ChatUser) => {
@@ -212,14 +212,14 @@ export function ChatClientPage({ room: initialRoom }: ChatClientPageProps) {
       description: `You are now following ${user.name}. (This is a demo)`,
       duration: 3000,
     });
-    logUserFollowed(firebaseUser.id, user.id, room.id);
+    logUserFollowed(firebaseUser?.uid, user.id, room.id);
   };
 
   const handleLeaveRoom = async () => {
     if (!firebaseUser) return; // Check firebaseUser
     try {
-      await removeUserFromRoom(room.id, firebaseUser.id);
-      logUserLeftRoom(firebaseUser.id, room.id);
+      await removeUserFromRoom(room.id, firebaseUser?.uid);
+      logUserLeftRoom(firebaseUser?.uid, room.id);
       toast({
         title: 'Left Room',
         description: `You have left ${room.name}.`,
