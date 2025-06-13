@@ -8,7 +8,7 @@ const mockCoinPackages: CoinPackage[] = [
     coins: 100,
     priceUSD: 0.99,
     description: 'A little boost to get you started.',
-    image: 'https://placehold.co/300x200.png',
+    image: 'https://sdmntprsouthcentralus.oaiusercontent.com/files/00000000-56ac-61f7-b2a1-2614308276f3/raw?se=2025-06-13T22%3A10%3A52Z&sp=r&sv=2024-08-04&sr=b&scid=ea8b6ac6-5ffd-59a7-8b70-f725f1ccf7ce&skoid=864daabb-d06a-46b3-a747-d35075313a83&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-06-13T20%3A59%3A45Z&ske=2025-06-14T20%3A59%3A45Z&sks=b&skv=2024-08-04&sig=n8M3rcujdH8CFZI5/IGuZ/frbCAfwWmoF1nSuG7s27s%3D',
   },
   {
     id: 'booster',
@@ -16,7 +16,7 @@ const mockCoinPackages: CoinPackage[] = [
     coins: 550,
     priceUSD: 4.99,
     description: 'Great value for active users.',
-    image: 'https://placehold.co/300x200.png',
+    image: 'https://sdmntprsouthcentralus.oaiusercontent.com/files/00000000-56ac-61f7-b2a1-2614308276f3/raw?se=2025-06-13T22%3A10%3A52Z&sp=r&sv=2024-08-04&sr=b&scid=ea8b6ac6-5ffd-59a7-8b70-f725f1ccf7ce&skoid=864daabb-d06a-46b3-a747-d35075313a83&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-06-13T20%3A59%3A45Z&ske=2025-06-14T20%3A59%3A45Z&sks=b&skv=2024-08-04&sig=n8M3rcujdH8CFZI5/IGuZ/frbCAfwWmoF1nSuG7s27s%3D',
   },
   {
     id: 'mega-hoard',
@@ -24,7 +24,7 @@ const mockCoinPackages: CoinPackage[] = [
     coins: 1200,
     priceUSD: 9.99,
     description: 'The best deal for true CommuniVerse fans!',
-    image: 'https://placehold.co/300x200.png',
+    image: 'https://sdmntprsouthcentralus.oaiusercontent.com/files/00000000-56ac-61f7-b2a1-2614308276f3/raw?se=2025-06-13T22%3A10%3A52Z&sp=r&sv=2024-08-04&sr=b&scid=ea8b6ac6-5ffd-59a7-8b70-f725f1ccf7ce&skoid=864daabb-d06a-46b3-a747-d35075313a83&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-06-13T20%3A59%3A45Z&ske=2025-06-14T20%3A59%3A45Z&sks=b&skv=2024-08-04&sig=n8M3rcujdH8CFZI5/IGuZ/frbCAfwWmoF1nSuG7s27s%3D',
   },
 ];
 
